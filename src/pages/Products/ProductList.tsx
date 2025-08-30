@@ -15,7 +15,7 @@ import { useNavigate } from "react-router";
 type ProductType = {
   id: number;
   product_name: string;
-  category: string;
+  category_id: string;
   product_type: string;
   price: string;
   product_code: string;
@@ -26,6 +26,8 @@ type ProductType = {
 
 export default function ProductList() {
   const [products, setProducts] = useState<ProductType[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [units, setUnits] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const navigate = useNavigate();
@@ -54,7 +56,9 @@ export default function ProductList() {
       try {
         const res = await axios.get("http://127.0.0.1:8000/api/products");
         // console.log(res.data.data);
-        setProducts(res.data.data);
+        setProducts(res.data.products.data);
+        setCategories(res.data.categories);
+        setUnits(res.data.units);
         setLoading(false);
       } catch (err) {
         console.error("Error fetching products:", err);
@@ -112,7 +116,9 @@ export default function ProductList() {
                           {product.product_name}
                         </TableCell>
                         <TableCell className="px-4 py-3 text-center">
-                          {product.category}
+                          {categories.find(
+                            (c) => c.id.toString() === product.category_id
+                          )?.category_name || "-"}
                         </TableCell>
                         <TableCell className="px-4 py-3 text-center">
                           {product.product_type}
@@ -124,7 +130,8 @@ export default function ProductList() {
                           {product.vat}
                         </TableCell>
                         <TableCell className="px-4 py-3 text-center">
-                          {product.unit}
+                          {units.find((u) => u.id === product.unit)
+                            ?.unit_name || "-"}
                         </TableCell>
                         <TableCell className="px-4 py-3 text-center">
                           {product.price}

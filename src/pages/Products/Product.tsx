@@ -12,7 +12,7 @@ import Swal from "sweetalert2";
 type OptionType = { value: string; label: string };
 interface FormData {
   product_name: string;
-  category: OptionType | null;
+  category_id: OptionType | null;
   product_type: OptionType | null;
   price: string;
   product_code: string;
@@ -24,7 +24,7 @@ interface FormData {
 export default function Product() {
   const [formData, setFormData] = useState<FormData>({
     product_name: "",
-    category: null,
+    category_id: null,
     product_type: null,
     price: "",
     product_code: "",
@@ -49,7 +49,7 @@ export default function Product() {
 
   // Handle Select changes
   const handleSelectChange = (
-    field: keyof Pick<FormData, "category" | "product_type" | "unit">,
+    field: keyof Pick<FormData, "category_id" | "product_type" | "unit">,
     value: OptionType | null
   ) => {
     setFormData({ ...formData, [field]: value });
@@ -84,7 +84,7 @@ export default function Product() {
       // Reset form but keep updated product code
       setFormData({
         product_name: "",
-        category: null,
+        category_id: null,
         product_type: null,
         price: "",
         product_code: res.data.product_code || "",
@@ -161,9 +161,9 @@ export default function Product() {
                 <Label>Select Category</Label>
                 <Select
                   options={categories}
-                  value={formData.category}
+                  value={formData.category_id}
                   placeholder="Select a Category"
-                  onChange={(val) => handleSelectChange("category", val)}
+                  onChange={(val) => handleSelectChange("category_id", val)}
                 />
               </div>
 
