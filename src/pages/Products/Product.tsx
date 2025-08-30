@@ -1,0 +1,213 @@
+import { useEffect, useState } from "react";
+import ComponentCard from "../../components/common/ComponentCard";
+import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import PageMeta from "../../components/common/PageMeta";
+import Input from "../../components/form/input/InputField";
+import Label from "../../components/form/Label";
+import Select from "../../components/form/Select";
+import Button from "../../components/ui/button/Button";
+import axios from "axios";
+
+type OptionType = { value: string; label: string };
+interface FormData {
+  product_name: string;
+  category: OptionType | null;
+  product_type: OptionType | null;
+  price: string;
+  product_code: string;
+  unit: OptionType | null;
+  vat: string;
+  sd: string;
+}
+
+export default function Product() {
+  const [toast, setToast] = useState<{ message: string; type: string }>({ message: "", type: "" });
+  const [formData, setFormData] = useState<FormData>({
+    product_name: "",
+    category: null,
+    product_type: null,
+    price: "",
+    product_code: "",
+    unit: null,
+    vat: "",
+    sd: "",
+  });
+
+  const categories: OptionType[] = [
+    { value: "1", label: "Pizza" },
+    { value: "2", label: "Burger" },
+    { value: "3", label: "Drinks" },
+  ];
+
+  const productTypes: OptionType[] = [
+    { value: "1", label: "Kitchen" },
+    { value: "2", label: "Juice" },
+    { value: "3", label: "Others" },
+  ];
+
+  const units: OptionType[] = [
+    { value: "1", label: "Pcs" },
+    { value: "2", label: "Kg" },
+    { value: "3", label: "Ltr" },
+  ];
+
+  // Handle input changes
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, [e.target.id]: e.target.value });
+  };
+
+  // Handle Select changes
+  const handleSelectChange = (field: keyof Pick<FormData, "category" | "product_type" | "unit">, value: OptionType | null) => {
+    setFormData({ ...formData, [field]: value });
+  };
+
+  // Save product
+  const handleSave = async () => {
+    try {
+      const payload = {
+        ...formData,
+        category: formData.category?.value || "",
+        product_type: formData.product_type?.value || "",
+        unit: formData.unit?.value || "",
+      };
+
+      const res = await axios.post("http://127.0.0.1:8000/api/products", payload, {
+        withCredentials: true,
+        headers: { "Content-Type": "application/json" },
+      });
+
+      setToast({ message: "✅ Product saved successfully!", type: "success" });
+
+      // Reset form but keep updated product code
+      setFormData({
+        product_name: "",
+        category: null,
+        product_type: null,
+        price: "",
+        product_code: res.data.product_code || "",
+        unit: null,
+        vat: "",
+        sd: "",
+      });
+    } catch (error: any) {
+      console.error("Error saving product:", error.response?.data || error);
+      setToast({
+        message: "❌ Error saving product! " + (error.response?.data?.message || ""),
+        type: "error",
+      });
+    }
+  };
+
+  // Fetch next product code
+  useEffect(() => {
+    const fetchNextCode = async () => {
+      try {
+        const res = await axios.get("http://127.0.0.1:8000/api/products/next-code");
+        setFormData((prev) => ({ ...prev, product_code: String(res.data.next_code) }));
+      } catch (error) {
+        console.error("Error fetching product code:", error);
+      }
+    };
+    fetchNextCode();
+  }, [toast]);
+
+  // Auto-hide toast
+  useEffect(() => {
+    if (toast.message) {
+      const timer = setTimeout(() => setToast({ message: "", type: "" }), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  return (
+    <div>
+      <PageMeta title="React.js Form Elements Dashboard | TailAdmin" description="Product Create Page" />
+      <PageBreadcrumb pageTitle="Product Create" />
+
+      {toast.message && (
+        <div
+          className={`fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg animate-fade-in-down z-50 ${
+            toast.type === "success" ? "bg-green-500 text-white" : "bg-red-500 text-white"
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
+
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="w-full max-w-lg">
+          <ComponentCard title="Product Create">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <Label htmlFor="product_name">Product Name</Label>
+                <Input
+                  type="text"
+                  id="product_name"
+                  value={formData.product_name}
+                  onChange={handleChange}
+                  placeholder="Enter product name"
+                />
+              </div>
+
+              <div>
+                <Label>Select Category</Label>
+                <Select
+                        options={categories}
+                        value={formData.category}
+                        placeholder="Select a Category"
+                        onChange={(val) => handleSelectChange("category", val)}
+/>
+              </div>
+
+              <div>
+                <Label>Product Type</Label>
+                <Select
+                    options={productTypes}
+                                  placeholder="Select Product Type"
+                                  value={formData.product_type}
+                    onChange={(val) => handleSelectChange("product_type", val)}
+/>
+              </div>
+
+              <div>
+                <Label htmlFor="vat">Vat</Label>
+                <Input type="text" id="vat" value={formData.vat} onChange={handleChange} placeholder="Enter vat" />
+              </div>
+
+              <div>
+                <Label htmlFor="sd">SD</Label>
+                <Input type="text" id="sd" value={formData.sd} onChange={handleChange} placeholder="Enter sd" />
+              </div>
+
+              <div>
+                <Label htmlFor="price">Product Price</Label>
+                <Input type="text" id="price" value={formData.price} onChange={handleChange} placeholder="Enter price" />
+              </div>
+
+              <div>
+                <Label htmlFor="product_code">Product Code</Label>
+                <Input type="text" id="product_code" value={formData.product_code} disabled />
+              </div>
+
+              <div>
+                <Label>Unit</Label>
+                <Select
+                    options={units}
+                                  placeholder="Select Unit"
+                                  value={formData.unit}
+                    onChange={(val) => handleSelectChange("unit", val)}
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <Button size="sm" onClick={handleSave}>
+                Save Changes
+              </Button>
+            </div>
+          </ComponentCard>
+        </div>
+      </div>
+    </div>
+  );
+}
