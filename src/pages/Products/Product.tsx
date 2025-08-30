@@ -7,6 +7,7 @@ import Label from "../../components/form/Label";
 import Select from "../../components/form/Select";
 import Button from "../../components/ui/button/Button";
 import axios from "axios";
+import Swal from "sweetalert2";
 
 type OptionType = { value: string; label: string };
 interface FormData {
@@ -21,7 +22,6 @@ interface FormData {
 }
 
 export default function Product() {
-  const [toast, setToast] = useState<{ message: string; type: string }>({ message: "", type: "" });
   const [formData, setFormData] = useState<FormData>({
     product_name: "",
     category: null,
@@ -33,22 +33,13 @@ export default function Product() {
     sd: "",
   });
 
-  const categories: OptionType[] = [
-    { value: "1", label: "Pizza" },
-    { value: "2", label: "Burger" },
-    { value: "3", label: "Drinks" },
-  ];
+  const [categories, setCategories] = useState<OptionType[]>([]);
+  const [unit, setUnit] = useState<OptionType[]>([]);
 
   const productTypes: OptionType[] = [
     { value: "1", label: "Kitchen" },
     { value: "2", label: "Juice" },
     { value: "3", label: "Others" },
-  ];
-
-  const units: OptionType[] = [
-    { value: "1", label: "Pcs" },
-    { value: "2", label: "Kg" },
-    { value: "3", label: "Ltr" },
   ];
 
   // Handle input changes
@@ -57,7 +48,10 @@ export default function Product() {
   };
 
   // Handle Select changes
-  const handleSelectChange = (field: keyof Pick<FormData, "category" | "product_type" | "unit">, value: OptionType | null) => {
+  const handleSelectChange = (
+    field: keyof Pick<FormData, "category" | "product_type" | "unit">,
+    value: OptionType | null
+  ) => {
     setFormData({ ...formData, [field]: value });
   };
 
@@ -66,17 +60,26 @@ export default function Product() {
     try {
       const payload = {
         ...formData,
-        category: formData.category?.value || "",
         product_type: formData.product_type?.value || "",
         unit: formData.unit?.value || "",
       };
 
-      const res = await axios.post("http://127.0.0.1:8000/api/products", payload, {
-        withCredentials: true,
-        headers: { "Content-Type": "application/json" },
-      });
+      const res = await axios.post(
+        "http://127.0.0.1:8000/api/products",
+        payload,
+        {
+          withCredentials: true,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
 
-      setToast({ message: "✅ Product saved successfully!", type: "success" });
+      Swal.fire({
+        icon: "success",
+        title: "Product Saved!",
+        text: "✅ Product saved successfully!",
+        timer: 2000,
+        showConfirmButton: false,
+      });
 
       // Reset form but keep updated product code
       setFormData({
@@ -89,50 +92,55 @@ export default function Product() {
         vat: "",
         sd: "",
       });
+      fetchNextCode();
     } catch (error: any) {
       console.error("Error saving product:", error.response?.data || error);
-      setToast({
-        message: "❌ Error saving product! " + (error.response?.data?.message || ""),
-        type: "error",
+      Swal.fire({
+        icon: "error",
+        title: "Save Failed!",
+        text:
+          "❌ Error saving product! " + (error.response?.data?.message || ""),
       });
     }
   };
 
   // Fetch next product code
-  useEffect(() => {
-    const fetchNextCode = async () => {
-      try {
-        const res = await axios.get("http://127.0.0.1:8000/api/products/next-code");
-        setFormData((prev) => ({ ...prev, product_code: String(res.data.next_code) }));
-      } catch (error) {
-        console.error("Error fetching product code:", error);
-      }
-    };
-    fetchNextCode();
-  }, [toast]);
 
-  // Auto-hide toast
-  useEffect(() => {
-    if (toast.message) {
-      const timer = setTimeout(() => setToast({ message: "", type: "" }), 3000);
-      return () => clearTimeout(timer);
+  const fetchNextCode = async () => {
+    try {
+      const res = await axios.get(
+        "http://127.0.0.1:8000/api/products/next-code"
+      );
+      setFormData((prev) => ({
+        ...prev,
+        product_code: String(res.data.next_code),
+      }));
+      const categoryOptions = res.data.category.map((cat: any) => ({
+        value: cat.id.toString(),
+        label: cat.category_name,
+      }));
+      const unitOption = res.data.units.map((unit: any) => ({
+        value: unit.id.toString(),
+        label: unit.unit_name,
+      }));
+      setCategories(categoryOptions);
+      setUnit(unitOption);
+    } catch (error) {
+      console.error("Error fetching product code:", error);
     }
-  }, [toast]);
+  };
+
+  useEffect(() => {
+    fetchNextCode();
+  }, []);
 
   return (
     <div>
-      <PageMeta title="React.js Form Elements Dashboard | TailAdmin" description="Product Create Page" />
+      <PageMeta
+        title="Product Create Page | A&T"
+        description="Product Create Page"
+      />
       <PageBreadcrumb pageTitle="Product Create" />
-
-      {toast.message && (
-        <div
-          className={`fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg animate-fade-in-down z-50 ${
-            toast.type === "success" ? "bg-green-500 text-white" : "bg-red-500 text-white"
-          }`}
-        >
-          {toast.message}
-        </div>
-      )}
 
       <div className="flex justify-center items-center min-h-screen">
         <div className="w-full max-w-lg">
@@ -152,50 +160,74 @@ export default function Product() {
               <div>
                 <Label>Select Category</Label>
                 <Select
-                        options={categories}
-                        value={formData.category}
-                        placeholder="Select a Category"
-                        onChange={(val) => handleSelectChange("category", val)}
-/>
+                  options={categories}
+                  value={formData.category}
+                  placeholder="Select a Category"
+                  onChange={(val) => handleSelectChange("category", val)}
+                />
               </div>
 
               <div>
                 <Label>Product Type</Label>
                 <Select
-                    options={productTypes}
-                                  placeholder="Select Product Type"
-                                  value={formData.product_type}
-                    onChange={(val) => handleSelectChange("product_type", val)}
-/>
+                  className="border-2"
+                  options={productTypes}
+                  placeholder="Select Product Type"
+                  value={formData.product_type}
+                  onChange={(val) => handleSelectChange("product_type", val)}
+                />
               </div>
 
               <div>
                 <Label htmlFor="vat">Vat</Label>
-                <Input type="text" id="vat" value={formData.vat} onChange={handleChange} placeholder="Enter vat" />
+                <Input
+                  type="text"
+                  id="vat"
+                  value={formData.vat}
+                  onChange={handleChange}
+                  placeholder="Enter vat"
+                />
               </div>
 
               <div>
                 <Label htmlFor="sd">SD</Label>
-                <Input type="text" id="sd" value={formData.sd} onChange={handleChange} placeholder="Enter sd" />
+                <Input
+                  type="text"
+                  id="sd"
+                  value={formData.sd}
+                  onChange={handleChange}
+                  placeholder="Enter sd"
+                />
               </div>
 
               <div>
                 <Label htmlFor="price">Product Price</Label>
-                <Input type="text" id="price" value={formData.price} onChange={handleChange} placeholder="Enter price" />
+                <Input
+                  type="text"
+                  id="price"
+                  value={formData.price}
+                  onChange={handleChange}
+                  placeholder="Enter price"
+                />
               </div>
 
               <div>
                 <Label htmlFor="product_code">Product Code</Label>
-                <Input type="text" id="product_code" value={formData.product_code} disabled />
+                <Input
+                  type="text"
+                  id="product_code"
+                  value={formData.product_code}
+                  disabled
+                />
               </div>
 
               <div>
                 <Label>Unit</Label>
                 <Select
-                    options={units}
-                                  placeholder="Select Unit"
-                                  value={formData.unit}
-                    onChange={(val) => handleSelectChange("unit", val)}
+                  options={unit}
+                  placeholder="Select Unit"
+                  value={formData.unit}
+                  onChange={(val) => handleSelectChange("unit", val)}
                 />
               </div>
             </div>

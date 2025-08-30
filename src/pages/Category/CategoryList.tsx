@@ -14,50 +14,44 @@ import axios from "axios";
 import { useNavigate } from "react-router";
 type ProductType = {
   id: number;
-  product_name: string;
-  category: string;
-  product_type: string;
-  price: string;
-  product_code: string;
-  unit: string;
-  vat: string;
-  sd: string;
+  category_name: string;
+  status: string;
 };
 
-export default function ProductList() {
+export default function CategoryList() {
   const [products, setProducts] = useState<ProductType[]>([]);
   const [loading, setLoading] = useState(true);
 
   const navigate = useNavigate();
 
   const handleEdit = (id: number) => {
-    navigate(`/products-edit/${id}`);
+    navigate(`/category-edit/${id}`);
   };
   const handleDelete = async (id: number) => {
     if (!confirm("Are you sure you want to delete this product?")) return;
 
     try {
-      await axios.delete(`http://127.0.0.1:8000/api/products/${id}`);
+      await axios.delete(`http://127.0.0.1:8000/api/category/${id}`);
 
       // Remove the deleted product from the local state
       setProducts((prevProducts) => prevProducts.filter((p) => p.id !== id));
 
-      alert("Product deleted successfully!");
+      alert("Category deleted successfully!");
     } catch (err) {
-      console.error("Error deleting product:", err);
-      alert("Failed to delete product!");
+      console.error("Error deleting Category:", err);
+      alert("Failed to delete Category!");
     }
   };
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const res = await axios.get("http://127.0.0.1:8000/api/products");
+        const res = await axios.get("http://127.0.0.1:8000/api/category");
         // console.log(res.data.data);
         setProducts(res.data.data);
         setLoading(false);
       } catch (err) {
-        console.error("Error fetching products:", err);
+        console.error("Error fetching category:", err);
         setLoading(false);
       }
     };
@@ -68,10 +62,10 @@ export default function ProductList() {
   return (
     <>
       <PageMeta
-        title="Product List | TailAdmin - Next.js Admin Dashboard Template"
+        title="Category List | TailAdmin - Next.js Admin Dashboard Template"
         description="This is React.js Basic Tables Dashboard page for TailAdmin - React.js Tailwind CSS Admin Dashboard Template"
       />
-      <PageBreadcrumb pageTitle="Product List" />
+      <PageBreadcrumb pageTitle="Category List" />
       <div className="space-y-6">
         <ComponentCard title="Basic Table 1">
           <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
@@ -80,14 +74,9 @@ export default function ProductList() {
                 {/* Table Header */}
                 <TableHeader>
                   <TableRow>
-                    <TableCell isHeader>Product Name</TableCell>
-                    <TableCell isHeader>Category</TableCell>
-                    <TableCell isHeader>Product Type</TableCell>
-                    <TableCell isHeader>SD</TableCell>
-                    <TableCell isHeader>Vat</TableCell>
-                    <TableCell isHeader>Unit</TableCell>
-                    <TableCell isHeader>Price</TableCell>
-                    <TableCell isHeader>Actions</TableCell>
+                    <TableCell isHeader>SL</TableCell>
+                    <TableCell isHeader>Category Name</TableCell>
+                    <TableCell isHeader>Status</TableCell>
                   </TableRow>
                 </TableHeader>
 
@@ -106,28 +95,16 @@ export default function ProductList() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    products.map((product) => (
+                    products.map((product, index) => (
                       <TableRow key={product.id}>
                         <TableCell className="px-5 py-4 sm:px-6 text-center">
-                          {product.product_name}
+                          {index + 1}
                         </TableCell>
                         <TableCell className="px-4 py-3 text-center">
-                          {product.category}
+                          {product.category_name}
                         </TableCell>
                         <TableCell className="px-4 py-3 text-center">
-                          {product.product_type}
-                        </TableCell>
-                        <TableCell className="px-4 py-3 text-center">
-                          {product.sd}
-                        </TableCell>
-                        <TableCell className="px-4 py-3 text-center">
-                          {product.vat}
-                        </TableCell>
-                        <TableCell className="px-4 py-3 text-center">
-                          {product.unit}
-                        </TableCell>
-                        <TableCell className="px-4 py-3 text-center">
-                          {product.price}
+                          {product.status}
                         </TableCell>
                         <TableCell className="px-4 py-3 text-center space-x-1">
                           <button

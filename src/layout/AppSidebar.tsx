@@ -30,13 +30,35 @@ const navItems: NavItem[] = [
   {
     icon: <GridIcon />,
     name: "Dashboard",
-    subItems: [{ name: "Ecommerce", path: "/", pro: false }],
+    subItems: [
+      { name: "Ecommerce", path: "/", pro: false },
+      { name: "Product Create", path: "/products", pro: false },
+      { name: "Product List", path: "/products-list", pro: false },
+    ],
+  },
+  {
+    icon: <GridIcon />,
+    name: "Settings",
+    subItems: [
+      { name: "Unit Create", path: "/unit", pro: false },
+      { name: "Unit List", path: "/unit-list", pro: false },
+    ],
   },
   {
     icon: <PencilIcon />,
     name: "Product",
-    subItems: [{ name: "Product Create", path: "/products", pro: false },{ name: "Product List", path: "/products-list", pro: false },{ name: "Product Edit", path: "/products-edit", pro: false }],
-    // path: "/products",
+    subItems: [
+      { name: "Product Create", path: "/products", pro: false },
+      { name: "Product List", path: "/products-list", pro: false },
+    ],
+  },
+  {
+    icon: <PencilIcon />,
+    name: "Category",
+    subItems: [
+      { name: "Category Create", path: "/category", pro: false },
+      { name: "Category List", path: "/category-list", pro: false },
+    ],
   },
   {
     icon: <CalenderIcon />,
@@ -48,6 +70,7 @@ const navItems: NavItem[] = [
     name: "User Profile",
     path: "/profile",
   },
+
   {
     name: "Forms",
     icon: <ListIcon />,
