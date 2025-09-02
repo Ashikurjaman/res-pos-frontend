@@ -27,6 +27,7 @@ import CategoryEdit from "./pages/Category/CategoryEdit";
 import Unit from "./pages/Unit/Unit";
 import UnitList from "./pages/Unit/UnitList";
 import UnitEdit from "./pages/Unit/UnitEdit";
+import CreateSale from "./pages/Sale/CreateSale";
 
 export default function App() {
   return (
@@ -39,6 +40,7 @@ export default function App() {
             <Route index path="/" element={<Home />} />
 
             {/* Others Page */}
+            <Route path="/sale" element={<CreateSale />} />
             <Route path="/products" element={<Product />} />
             <Route path="/products-list" element={<ProductList />} />
             <Route path="/products-edit/:id" element={<ProductEdit />} />

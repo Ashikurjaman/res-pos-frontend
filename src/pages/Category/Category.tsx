@@ -12,13 +12,13 @@ import Swal from "sweetalert2";
 type OptionType = { value: string; label: string };
 interface FormData {
   category_name: string;
-  status: OptionType | null;
+  status: OptionType;
 }
 
 export default function Category() {
   const [formData, setFormData] = useState<FormData>({
     category_name: "",
-    status: null,
+    status: { value: "1", label: "Yes" }, // set default as object
   });
 
   // Handle input changes
@@ -29,7 +29,7 @@ export default function Category() {
   // Handle Select changes
   const handleSelectChange = (
     field: keyof Pick<FormData, "status">,
-    value: OptionType | null
+    value: OptionType
   ) => {
     setFormData({ ...formData, [field]: value });
   };
@@ -39,7 +39,7 @@ export default function Category() {
     try {
       const payload = {
         ...formData,
-        status: formData.status?.value || "",
+        status: formData.status?.value || 1,
       };
 
       const res = await axios.post(
@@ -61,7 +61,7 @@ export default function Category() {
 
       setFormData({
         category_name: "",
-        status: null,
+        status: { value: "1", label: "Yes" }, // ✅ reset to default
       });
     } catch (error: any) {
       console.error("Error saving product:", error.response?.data || error);
@@ -106,7 +106,7 @@ export default function Category() {
                 <Label>Status</Label>
                 <Select
                   options={status}
-                  placeholder="Select Status"
+                  placeholder="Yes"
                   value={formData.status}
                   onChange={(val) => handleSelectChange("status", val)}
                 />

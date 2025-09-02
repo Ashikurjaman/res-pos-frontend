@@ -32,8 +32,15 @@ const navItems: NavItem[] = [
     name: "Dashboard",
     subItems: [
       { name: "Ecommerce", path: "/", pro: false },
-      { name: "Product Create", path: "/products", pro: false },
-      { name: "Product List", path: "/products-list", pro: false },
+
+    ],
+  },
+      {
+    icon: <PencilIcon />,
+    name: "Sale",
+    subItems: [
+      { name: "Create Sale", path: "/sale", pro: false },
+      // { name: "Product List", path: "/products-list", pro: false },
     ],
   },
   {
