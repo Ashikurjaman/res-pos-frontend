@@ -29,8 +29,8 @@ export default function Product() {
     price: "",
     product_code: "",
     unit: null,
-    vat: "",
-    sd: "",
+    vat: "0",
+    sd: "0",
   });
 
   const [categories, setCategories] = useState<OptionType[]>([]);
@@ -89,8 +89,8 @@ export default function Product() {
         price: "",
         product_code: res.data.product_code || "",
         unit: null,
-        vat: "",
-        sd: "",
+        vat: "0",
+        sd: "0",
       });
       fetchNextCode();
     } catch (error: any) {
@@ -183,6 +183,7 @@ export default function Product() {
                 <Input
                   type="text"
                   id="vat"
+                  defaultValue={"0"}
                   value={formData.vat}
                   onChange={handleChange}
                   placeholder="Enter vat"
@@ -195,6 +196,7 @@ export default function Product() {
                   type="text"
                   id="sd"
                   value={formData.sd}
+                  defaultValue={"0"}
                   onChange={handleChange}
                   placeholder="Enter sd"
                 />

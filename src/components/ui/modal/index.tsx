@@ -45,12 +45,12 @@ export const Modal: React.FC<ModalProps> = ({
     <div className="fixed inset-0 z-50" onClick={handleClickOutside}>
       <div
         ref={modalRef}
-        className={`absolute top-16 right-0 h-screen w-96 bg-white dark:bg-gray-900 shadow-lg p-4 overflow-y-auto ${className}`}
+        className={`absolute top-16 right-0 h-screen w-auto bg-white dark:bg-gray-900 shadow-lg p-4 overflow-y-auto ${className}`}
       >
         {showCloseButton && (
           <button
             onClick={onClose}
-            className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
+            className="absolute right-3 top-3 flex h-auto w-auto items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
           >
             ✕
           </button>
