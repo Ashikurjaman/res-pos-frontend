@@ -8,12 +8,14 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { PencilIcon, TrashBinIcon } from "../../icons";
+import { Modal } from "../../components/ui/modal";
 
 interface CartItem {
   id: number;
   product_name: string;
   price: number;
   quantity: number;
+  stock: number;
 }
 
 interface Props {
@@ -37,7 +39,7 @@ export default function AddToCartProduct({
   useEffect(() => {
     localStorage.setItem("editedProducts", JSON.stringify(editedProducts));
   }, [editedProducts]);
-
+  console.log(cart);
   const totalAmount = cart.reduce(
     (sum, product) => sum + product.price * product.quantity,
     0
@@ -95,13 +97,20 @@ export default function AddToCartProduct({
                       className="w-16 text-center border rounded"
                       value={product.quantity}
                       min={0}
-                      onChange={(e) =>
-                        onUpdateQuantity(
-                          product.id,
-                          parseInt(e.target.value) || 0
-                        )
-                      }
+                      onChange={(e) => {
+                        const newQty = parseInt(e.target.value) || 0;
+                        if (newQty > product.stock) {
+                          alert("Not in stock");
+                          return;
+                        }
+                        onUpdateQuantity(product.id, newQty);
+                      }}
                     />
+                    {product.quantity > product.stock && (
+                      <div className="text-red-500 text-xs mt-1">
+                        Not enough stock (max {product.stock})
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className="px-1 py-1 text-center">
                     {product.quantity * product.price}
@@ -122,15 +131,17 @@ export default function AddToCartProduct({
                   </TableCell>
                 </TableRow>
               ))}
-              <TableRow className="font-extrabold bg-gray-100">
-                <TableCell colSpan={4} className="text-right px-4 py-2">
-                  Total Amount
-                </TableCell>
-                <TableCell className="text-center px-4 py-2">
-                  {totalAmount}
-                </TableCell>
-                <TableCell children={undefined}></TableCell>
-              </TableRow>
+              {cart.length > 0 && (
+                <TableRow className="font-extrabold bg-gray-100">
+                  <TableCell colSpan={4} className="text-right px-4 py-2">
+                    Total Amount
+                  </TableCell>
+                  <TableCell className="text-center px-4 py-2">
+                    {totalAmount}
+                  </TableCell>
+                  <TableCell children={undefined} />
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>

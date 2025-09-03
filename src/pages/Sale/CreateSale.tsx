@@ -1,30 +1,53 @@
 import { useEffect, useState } from "react";
 import AddToCartProduct from "./AddToCartProduct";
 import CategoryShow from "./CategoryShow";
-import InvoiceDetails from "./invoiceDetails";
+import InvoiceDetails from "./InvoiceDetails";
+import { Modal } from "../../components/ui/modal";
+import Alert from "../../components/ui/alert/Alert";
 
 interface CartItem {
   id: number;
   product_name: string;
   price: number;
   quantity: number;
+  stock: number;
 }
 export default function CreateSale() {
+  const [stockAlert, setStockAlert] = useState({
+    open: false,
+    message: "",
+  });
   const [cart, setCart] = useState<CartItem[]>(() => {
     const storedCart = localStorage.getItem("cartItems");
     return storedCart ? JSON.parse(storedCart) : [];
   });
 
+  const triggerAlert = (message: string) => {
+    setStockAlert({ show: true, message });
+    setTimeout(() => setStockAlert({ show: false, message: "" }), 3000); // hide after 3 sec
+  };
+
   useEffect(() => {
-    localStorage.setItem("cartItems", JSON.stringify(cart));
+    const validCart = cart.filter((item) => item.quantity <= item.stock);
+    localStorage.setItem("cartItems", JSON.stringify(validCart));
   }, [cart]);
 
   const handleAddToCart = (product: CartItem) => {
+    if (product.stock <= 0 || product.quantity > product.stock) {
+      triggerAlert(`${product.product_name} is out of stock!`);
+      return;
+    }
+
     setCart((prev) => {
       //   console.log(product);
       const existing = prev.find((item) => item.id === product.id);
       if (existing) {
+        if (existing.quantity + product.quantity > product.stock) {
+          triggerAlert(`${product.product_name} stock is insufficient!`);
+          return prev;
+        }
         // update quantity
+
         return prev.map((item) =>
           item.id === product.id
             ? { ...item, quantity: item.quantity + product.quantity }
@@ -83,6 +106,15 @@ export default function CreateSale() {
           onClearCart={handleClearCart}
         />{" "}
       </div>
+      {stockAlert.show && (
+        <div className="absolute top-60 right-90 z-100">
+          <Alert
+            title="Stock Alert"
+            variant="error"
+            message={stockAlert.message}
+          />
+        </div>
+      )}
     </div>
   );
 }

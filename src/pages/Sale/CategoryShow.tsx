@@ -11,6 +11,7 @@ interface Product {
   id: number;
   product_name: string;
   price: number;
+  stock: number;
 }
 interface CategoryShowProps {
   onAddToCart: (product: {
@@ -18,6 +19,7 @@ interface CategoryShowProps {
     product_name: string;
     price: number;
     quantity: number;
+    stock: number;
   }) => void;
 }
 
@@ -121,31 +123,13 @@ export default function CategoryShow({ onAddToCart }: CategoryShowProps) {
                       product_name: product.product_name,
                       price: product.price,
                       quantity: quantities[product.id] || 1,
+                      stock: product.stock,
                     })
                   }
                   className="bg-blue-500 text-white w-40 h-20 px-1 py-3 rounded-md hover:bg-blue-600 transition"
                 >
                   {product.product_name}
                 </button>
-
-                {/* Quantity controls */}
-                {/* <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => decrement(product.id)}
-                    className="bg-red-500 text-white px-2 py-1 rounded-md"
-                  >
-                    −
-                  </button>
-                  <span className="w-6 text-center font-semibold">
-                    {quantities[product.id] || 1}
-                  </span>
-                  <button
-                    onClick={() => increment(product.id)}
-                    className="bg-green-500 text-white px-2 py-1 rounded-md"
-                  >
-                    +
-                  </button>
-                </div> */}
               </li>
             ))}
           </ul>
