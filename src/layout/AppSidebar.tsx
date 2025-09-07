@@ -18,6 +18,7 @@ import {
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import SidebarWidget from "./SidebarWidget";
+import GridShape from "../components/common/GridShape";
 
 type NavItem = {
   name: string;
@@ -30,16 +31,14 @@ const navItems: NavItem[] = [
   {
     icon: <GridIcon />,
     name: "Dashboard",
-    subItems: [
-      { name: "Ecommerce", path: "/", pro: false },
-
-    ],
+    subItems: [{ name: "Ecommerce", path: "/", pro: false }],
   },
-      {
-    icon: <PencilIcon />,
-    name: "Sale",
+  {
+    icon: <GridIcon />,
+    name: "Sale List",
     subItems: [
       { name: "Create Sale", path: "/sale", pro: false },
+      { name: "Sale List", path: "/sale-list", pro: false },
       // { name: "Product List", path: "/products-list", pro: false },
     ],
   },

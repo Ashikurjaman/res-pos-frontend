@@ -20,6 +20,9 @@ interface CategoryShowProps {
     price: number;
     quantity: number;
     stock: number;
+    category: number;
+    vat: number;
+    sd: number;
   }) => void;
 }
 

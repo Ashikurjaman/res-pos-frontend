@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import ComponentCard from "../../components/common/ComponentCard";
 import {
   Table,
@@ -8,7 +7,6 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { PencilIcon, TrashBinIcon } from "../../icons";
-import { Modal } from "../../components/ui/modal";
 
 interface CartItem {
   id: number;
@@ -16,6 +14,9 @@ interface CartItem {
   price: number;
   quantity: number;
   stock: number;
+  category: number;
+  vat: number;
+  sd: number;
 }
 
 interface Props {
@@ -23,6 +24,9 @@ interface Props {
   onUpdateQuantity: (id: number, quantity: number) => void;
   onDeleteProduct: (id: number) => void;
   onEditProduct: (id: number, newName: string) => void;
+  editedProducts: any;
+  totalAmount: any;
+  setEditedProducts: any;
 }
 
 export default function AddToCartProduct({
@@ -30,21 +34,10 @@ export default function AddToCartProduct({
   onUpdateQuantity,
   onDeleteProduct,
   onEditProduct,
+  editedProducts,
+  totalAmount,
+  setEditedProducts,
 }: Props) {
-  const [editedProducts, setEditedProducts] = useState<number[]>(() => {
-    const stored = localStorage.getItem("editedProducts");
-    return stored ? JSON.parse(stored) : [];
-  });
-
-  useEffect(() => {
-    localStorage.setItem("editedProducts", JSON.stringify(editedProducts));
-  }, [editedProducts]);
-  console.log(cart);
-  const totalAmount = cart.reduce(
-    (sum, product) => sum + product.price * product.quantity,
-    0
-  );
-
   const handleEdit = (item: CartItem) => {
     const appendText = prompt("Enter text to append", "");
     if (!appendText) return;
@@ -69,6 +62,7 @@ export default function AddToCartProduct({
                 <TableCell isHeader>SL</TableCell>
                 <TableCell isHeader>Product Name</TableCell>
                 <TableCell isHeader>Price</TableCell>
+                <TableCell isHeader>Stock</TableCell>
                 <TableCell isHeader>Quantity</TableCell>
                 <TableCell isHeader>Total</TableCell>
                 <TableCell isHeader>Action</TableCell>
@@ -90,6 +84,9 @@ export default function AddToCartProduct({
                   </TableCell>
                   <TableCell className="px-1 py-1 text-center">
                     {product.price}
+                  </TableCell>
+                  <TableCell className="px-1 py-1 text-center">
+                    {product.stock}
                   </TableCell>
                   <TableCell className="px-1 py-1 text-center">
                     <input

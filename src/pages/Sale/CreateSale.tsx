@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import AddToCartProduct from "./AddToCartProduct";
 import CategoryShow from "./CategoryShow";
 import InvoiceDetails from "./InvoiceDetails";
-import { Modal } from "../../components/ui/modal";
 import Alert from "../../components/ui/alert/Alert";
 
 interface CartItem {
@@ -11,6 +10,9 @@ interface CartItem {
   price: number;
   quantity: number;
   stock: number;
+  category: number;
+  vat: number;
+  sd: number;
 }
 export default function CreateSale() {
   const [stockAlert, setStockAlert] = useState({
@@ -21,6 +23,20 @@ export default function CreateSale() {
     const storedCart = localStorage.getItem("cartItems");
     return storedCart ? JSON.parse(storedCart) : [];
   });
+
+  const [editedProducts, setEditedProducts] = useState<number[]>(() => {
+    const stored = localStorage.getItem("editedProducts");
+    return stored ? JSON.parse(stored) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem("editedProducts", JSON.stringify(editedProducts));
+  }, [editedProducts]);
+  console.log(cart);
+  const totalAmount = cart.reduce(
+    (sum, product) => sum + product.price * product.quantity,
+    0
+  );
 
   const triggerAlert = (message: string) => {
     setStockAlert({ show: true, message });
@@ -70,6 +86,7 @@ export default function CreateSale() {
 
   const handleDeleteProduct = (id: number) => {
     setCart((prev) => prev.filter((item) => item.id !== id));
+    setEditedProducts((prev) => prev.filter((pid) => pid !== id));
   };
 
   const handleEditProduct = (id: number, newName: string) => {
@@ -96,6 +113,9 @@ export default function CreateSale() {
           onUpdateQuantity={handleQuantityChange}
           onDeleteProduct={handleDeleteProduct}
           onEditProduct={handleEditProduct}
+          editedProducts={editedProducts}
+          totalAmount={totalAmount}
+          setEditedProducts={setEditedProducts}
         />{" "}
       </div>
       <div className="col-span-3">
