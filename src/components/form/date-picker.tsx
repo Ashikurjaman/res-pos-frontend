@@ -33,7 +33,7 @@ export default function DatePicker({
       static: true,
       monthSelectorType: "static",
       dateFormat: "d-m-Y", // <-- dd-mm-yyyy format
-      defaultDate: defaultDate || new Date(), // <-- default to today
+      // <-- default to today
       onChange,
       value,
       name,

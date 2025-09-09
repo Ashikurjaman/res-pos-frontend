@@ -51,6 +51,10 @@ export default function InvoiceDetails({ cart, setCart }: InvoiceDetailsProps) {
   const handleConfirm = () => {
     setShowModal(false);
   };
+  const today = new Date().toLocaleDateString("en-CA", {
+    timeZone: "Asia/Dhaka",
+  });
+  console.log(today);
 
   const handleSubmit = async () => {
     if (received < total) {
@@ -64,6 +68,7 @@ export default function InvoiceDetails({ cart, setCart }: InvoiceDetailsProps) {
       const response = await axios.post(
         "http://localhost:8000/api/create-sale",
         {
+          entryDate: today,
           total,
           discount,
           vat,
