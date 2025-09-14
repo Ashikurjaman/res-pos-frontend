@@ -84,7 +84,7 @@ export default function CategoryShow({ onAddToCart }: CategoryShowProps) {
   return (
     <div className="p-4">
       <h2 className="text-lg text-center font-semibold mb-3">Categories</h2>
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 h-[80vh] overflow-y-auto pr-2">
         {categories.map((category) => (
           <button
             key={category.id}

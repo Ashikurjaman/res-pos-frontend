@@ -32,7 +32,6 @@ export default function CreateSale() {
   useEffect(() => {
     localStorage.setItem("editedProducts", JSON.stringify(editedProducts));
   }, [editedProducts]);
-  console.log(cart);
   const totalAmount = cart.reduce(
     (sum, product) => sum + product.price * product.quantity,
     0
@@ -99,6 +98,7 @@ export default function CreateSale() {
 
   const handleClearCart = () => {
     setCart([]);
+    setEditedProducts([]);
   };
   return (
     <div className="grid grid-cols-12 border-2 gap-2">

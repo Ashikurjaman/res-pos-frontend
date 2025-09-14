@@ -17,7 +17,11 @@ interface InvoiceDetailsProps {
   setCart: React.Dispatch<React.SetStateAction<CartItem[]>>;
   onClearCart?: () => void;
 }
-export default function InvoiceDetails({ cart, setCart }: InvoiceDetailsProps) {
+export default function InvoiceDetails({
+  cart,
+  setCart,
+  onClearCart,
+}: InvoiceDetailsProps) {
   const [discount, setDiscount] = useState(0);
   const [vat, setVat] = useState(0);
   const [sd, setSd] = useState(0);
@@ -104,7 +108,11 @@ export default function InvoiceDetails({ cart, setCart }: InvoiceDetailsProps) {
       setSd(0);
       setPaymentMode("Cash");
       setReceived(0);
-      setCart([]);
+      if (onClearCart) {
+        onClearCart(); // ✅ use parent clear (this also clears editedProducts)
+      } else {
+        setCart([]);
+      }
     } catch (error) {
       console.error("❌ Error submitting invoice:", error);
       Swal.fire({
@@ -148,7 +156,11 @@ export default function InvoiceDetails({ cart, setCart }: InvoiceDetailsProps) {
     setSd(0);
     setPaymentMode("Cash");
     setReceived(0);
-    setCart([]);
+    if (onClearCart) {
+      onClearCart(); // ✅ use parent clear (this also clears editedProducts)
+    } else {
+      setCart([]);
+    }
   };
 
   return (

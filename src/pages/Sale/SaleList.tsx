@@ -10,8 +10,8 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
-import Badge from "../../components/ui/badge/Badge";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import Swal from "sweetalert2";
 
 export default function SaleList() {
   const today = new Date();
@@ -47,6 +47,7 @@ export default function SaleList() {
         },
       });
       setSales(response.data.data);
+      // console.log("ok", sales);
     } catch (error) {
       console.error("Error fetching sales:", error);
     }
@@ -55,6 +56,131 @@ export default function SaleList() {
   useEffect(() => {
     handelSubmit(new Event("submit"));
   }, []);
+
+  const handlePrint = (sale) => {
+    const printWindow = window.open("", "_blank", "width=400,height=600");
+
+    printWindow.document.write(`
+    <html>
+      <head>
+        <title>Invoice #${sale.invoiceNo}</title>
+        <style>
+          body { font-family: monospace; font-size: 12px; margin: 0; padding: 10px; }
+          .center { text-align: center; }
+          .bold { font-weight: bold; }
+          .line { border-top: 1px dashed #000; margin: 5px 0; }
+          table { width: 100%; font-size: 12px; border-collapse: collapse; }
+          td { padding: 2px 0; }
+          .totals td { font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <div class="center">
+          <div class="bold">My Company Name</div>
+          Address line, City<br/>
+          -----------------------------
+          <div class="bold">Invoice</div>
+        </div>
+
+        <div>
+          Invoice: ${sale.invoiceNo}<br/>
+          Date: ${sale.entryDate}<br/>
+          Payment: ${sale.paymentMode}<br/>
+        </div>
+
+        <div class="line"></div>
+        <table>
+          <thead>
+            <tr>
+              <td class="bold">Item</td>
+              <td class="bold" style="text-align:right;">Qty</td>
+              <td class="bold" style="text-align:right;">Price</td>
+              <td class="bold" style="text-align:right;">Total</td>
+            </tr>
+          </thead>
+          <tbody>
+            ${(sale.products || [])
+              .map(
+                (p) => `
+                <tr>
+                  <td>${p.product_name}</td>
+                  <td style="text-align:right;">${p.quantity}</td>
+                  <td style="text-align:right;">${(
+                    p.total / p.quantity
+                  ).toFixed(2)}</td>
+                  <td style="text-align:right;">${p.total}</td>
+                </tr>
+              `
+              )
+              .join("")}
+          </tbody>
+        </table>
+        <div class="line"></div>
+        <table class="totals">
+          <tr>
+            <td>Discount</td>
+            <td style="text-align:right;">${sale.discount}</td>
+          </tr>
+          <tr>
+            <td>SD</td>
+            <td style="text-align:right;">${sale.total_sd}</td>
+          </tr>
+          <tr>
+            <td>VAT</td>
+            <td style="text-align:right;">${sale.total_vat}</td>
+          </tr>
+          <tr>
+            <td>Total</td>
+            <td style="text-align:right;">${sale.total}</td>
+          </tr>
+        </table>
+        <div class="line"></div>
+        <div class="center">
+          Thank you for your business!<br/>
+          Powered by MySoftware
+        </div>
+      </body>
+    </html>
+  `);
+
+    printWindow.document.close();
+    printWindow.print();
+  };
+
+  const handelDelete = async (id) => {
+    // console.log(id);
+    const confirm = await Swal.fire({
+      title: "Are you sure?",
+      text: "This sale will be deleted permanently!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, delete it!",
+    });
+
+    try {
+      const response = await axios.delete(
+        `http://localhost:8000/api/sale-list/${id}`
+      );
+      Swal.fire({
+        icon: "success",
+        title: "Deleted!",
+        text: response.data.message || "Sale has been deleted.",
+        timer: 2000,
+        showConfirmButton: false,
+      });
+
+      setSales((prevSales) => prevSales.filter((s) => s.sale_id !== id));
+    } catch (error) {
+      console.error("Delete failed:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Error!",
+        text: error.response?.data?.message || "Failed to delete sale.",
+      });
+    }
+  };
   return (
     <>
       <form onSubmit={handelSubmit}>
@@ -177,27 +303,7 @@ export default function SaleList() {
             {/* Table Body */}
             <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
               {sales.map((sale) => (
-                <TableRow key={sale.id}>
-                  {/* <TableCell className="px-5 py-4 sm:px-6 text-start">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 overflow-hidden rounded-full">
-                        <img
-                          width={40}
-                          height={40}
-                          src={order.user.image}
-                          alt={order.user.name}
-                        />
-                      </div>
-                      <div>
-                        <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                          {order.user.name}
-                        </span>
-                        <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
-                          {order.user.role}
-                        </span>
-                      </div>
-                    </div>
-                  </TableCell> */}
+                <TableRow key={sale.sale_id}>
                   <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
                     {sale.entryDate}
                   </TableCell>
@@ -220,10 +326,16 @@ export default function SaleList() {
                     {sale.paymentMode}
                   </TableCell>
                   <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400 space-x-1">
-                    <button className="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    <button
+                      className="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                      onClick={() => handlePrint(sale)}
+                    >
                       Print
                     </button>
-                    <button className="flex-1 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
+                    <button
+                      className="flex-1 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+                      onClick={() => handelDelete(sale.sale_id)}
+                    >
                       Delete
                     </button>
                   </TableCell>
