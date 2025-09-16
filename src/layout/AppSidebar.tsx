@@ -35,10 +35,23 @@ const navItems: NavItem[] = [
   },
   {
     icon: <GridIcon />,
-    name: "Sale List",
+    name: "Sale",
     subItems: [
       { name: "Create Sale", path: "/sale", pro: false },
       { name: "Sale List", path: "/sale-list", pro: false },
+      // { name: "Product List", path: "/products-list", pro: false },
+    ],
+  },
+  {
+    icon: <GridIcon />,
+    name: "Inventory",
+    subItems: [
+      { name: "Inventory Request", path: "/sale", pro: false },
+      { name: "Inventory Receive", path: "/sale-list", pro: false },
+      { name: "Wastage", path: "/sale-list", pro: false },
+      { name: "Wastage List", path: "/sale-list", pro: false },
+      { name: "Dispatch", path: "/sale-list", pro: false },
+      { name: "Dispatch List", path: "/sale-list", pro: false },
       // { name: "Product List", path: "/products-list", pro: false },
     ],
   },

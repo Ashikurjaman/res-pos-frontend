@@ -57,7 +57,7 @@ export default function SaleList() {
     handelSubmit(new Event("submit"));
   }, []);
 
-  const handlePrint = (sale) => {
+  const handlePrint = (sale: any) => {
     const printWindow = window.open("", "_blank", "width=400,height=600");
 
     printWindow.document.write(`
