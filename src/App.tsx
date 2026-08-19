@@ -29,6 +29,9 @@ import UnitList from "./pages/Unit/UnitList";
 import UnitEdit from "./pages/Unit/UnitEdit";
 import CreateSale from "./pages/Sale/CreateSale";
 import SaleList from "./pages/Sale/SaleList";
+import TableManagement from "./pages/Table/TableManagement"; // 👈 Import Table Management
+import SalePageWrapper from "./pages/Sale/SalePageWrapper";
+import StockManagement from "./pages/Products/StockManagement";
 
 export default function App() {
   return (
@@ -40,18 +43,31 @@ export default function App() {
           <Route element={<AppLayout />}>
             <Route index path="/" element={<Home />} />
 
-            {/* Others Page */}
-            <Route path="/sale" element={<CreateSale />} />
+            {/* Sale Routes */}
+            {/* <Route path="/sale" element={<CreateSale />} /> */}
+            <Route path="/sale" element={<SalePageWrapper />} />
             <Route path="/sale-list" element={<SaleList />} />
+
+            {/* Product Routes */}
             <Route path="/products" element={<Product />} />
             <Route path="/products-list" element={<ProductList />} />
             <Route path="/products-edit/:id" element={<ProductEdit />} />
+            <Route path="/stock-management" element={<StockManagement />} />
+
+            {/* Category Routes */}
             <Route path="/category" element={<Category />} />
             <Route path="/category-list" element={<CategoryList />} />
             <Route path="/category-edit/:id" element={<CategoryEdit />} />
+
+            {/* Unit Routes */}
             <Route path="/unit" element={<Unit />} />
             <Route path="/unit-list" element={<UnitList />} />
             <Route path="/unit-edit/:id" element={<UnitEdit />} />
+
+            {/* Table Routes 👈 Add this */}
+            <Route path="/tables" element={<TableManagement />} />
+
+            {/* Other Routes */}
             <Route path="/profile" element={<UserProfiles />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/blank" element={<Blank />} />

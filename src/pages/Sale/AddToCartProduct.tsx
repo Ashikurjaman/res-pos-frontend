@@ -7,6 +7,8 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { PencilIcon, TrashBinIcon } from "../../icons";
+import { Plus, Minus, ShoppingCart, AlertTriangle } from "lucide-react";
+import { useState } from "react";
 
 interface CartItem {
   id: number;
@@ -38,13 +40,13 @@ export default function AddToCartProduct({
   totalAmount,
   setEditedProducts,
 }: Props) {
+  const [editingId, setEditingId] = useState<number | null>(null);
+
   const handleEdit = (item: CartItem) => {
-    const appendText = prompt("Enter text to append", "");
-    if (!appendText) return;
+    const appendText = prompt("Enter text to append to product name:", "");
+    if (appendText === null) return;
 
-    // Append the new text to the existing product name
     const newName = `${item.product_name} - [${appendText}]`;
-
     onEditProduct(item.id, newName);
 
     if (!editedProducts.includes(item.id)) {
@@ -52,93 +54,249 @@ export default function AddToCartProduct({
     }
   };
 
+  const handleQuantityChange = (id: number, newQty: number) => {
+    if (newQty < 0) return;
+    onUpdateQuantity(id, newQty);
+  };
+
+  const getStockStatus = (stock: number) => {
+    if (stock <= 0) return { label: "Out of Stock", color: "text-red-600" };
+    if (stock <= 5) return { label: "Low Stock", color: "text-yellow-600" };
+    return { label: "In Stock", color: "text-green-600" };
+  };
+
+  if (cart.length === 0) {
+    return (
+      <ComponentCard title="">
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <ShoppingCart className="w-16 h-16 text-gray-300 mb-4" />
+          <h3 className="text-lg font-medium text-gray-600">
+            Your cart is empty
+          </h3>
+          <p className="text-sm text-gray-400 mt-1">
+            Select a category and add products to get started
+          </p>
+        </div>
+      </ComponentCard>
+    );
+  }
+
   return (
     <div>
       <ComponentCard title="">
-        <div className="max-w-full overflow-x rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+        <div className="max-w-full overflow-x-auto rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
           <Table className="min-w-full">
             <TableHeader>
-              <TableRow>
-                <TableCell isHeader>SL</TableCell>
-                <TableCell isHeader>Product Name</TableCell>
-                <TableCell isHeader>Price</TableCell>
-                <TableCell isHeader>Stock</TableCell>
-                <TableCell isHeader>Quantity</TableCell>
-                <TableCell isHeader>Total</TableCell>
-                <TableCell isHeader>Action</TableCell>
+              <TableRow className="bg-gray-50 dark:bg-gray-800">
+                <TableCell
+                  isHeader
+                  className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  SL
+                </TableCell>
+                <TableCell
+                  isHeader
+                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Product Name
+                </TableCell>
+                <TableCell
+                  isHeader
+                  className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Price
+                </TableCell>
+                <TableCell
+                  isHeader
+                  className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Stock
+                </TableCell>
+                <TableCell
+                  isHeader
+                  className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Quantity
+                </TableCell>
+                <TableCell
+                  isHeader
+                  className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Total
+                </TableCell>
+                <TableCell
+                  isHeader
+                  className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Action
+                </TableCell>
               </TableRow>
             </TableHeader>
             <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05] text-sm">
-              {cart.map((product, index) => (
-                <TableRow
-                  key={product.id}
-                  className={
-                    editedProducts.includes(product.id) ? "bg-green-200" : ""
-                  }
-                >
-                  <TableCell className="px-2 py-2 sm:px-2 text-center">
-                    {index + 1}
-                  </TableCell>
-                  <TableCell className="px-1 py-1 text-center">
-                    {product.product_name}
-                  </TableCell>
-                  <TableCell className="px-1 py-1 text-center">
-                    {product.price}
-                  </TableCell>
-                  <TableCell className="px-1 py-1 text-center">
-                    {product.stock}
-                  </TableCell>
-                  <TableCell className="px-1 py-1 text-center">
-                    <input
-                      type="number"
-                      className="w-16 text-center border rounded"
-                      value={product.quantity}
-                      min={0}
-                      onChange={(e) => {
-                        const newQty = parseInt(e.target.value) || 0;
-                        if (newQty > product.stock) {
-                          alert("Not in stock");
-                          return;
-                        }
-                        onUpdateQuantity(product.id, newQty);
-                      }}
-                    />
-                    {product.quantity > product.stock && (
-                      <div className="text-red-500 text-xs mt-1">
-                        Not enough stock (max {product.stock})
+              {cart.map((product, index) => {
+                const isEdited = editedProducts.includes(product.id);
+                const isLowStock = product.stock <= 5 && product.stock > 0;
+                const isOutOfStock = product.stock <= 0;
+                const stockStatus = getStockStatus(product.stock);
+                const total = product.quantity * product.price;
+
+                return (
+                  <TableRow
+                    key={product.id}
+                    className={`transition-colors ${
+                      isEdited
+                        ? "bg-green-50 hover:bg-green-100"
+                        : "hover:bg-gray-50"
+                    } ${isOutOfStock ? "opacity-60" : ""}`}
+                  >
+                    <TableCell className="px-4 py-3 text-center font-medium text-gray-500">
+                      {index + 1}
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-gray-800">
+                          {product.product_name}
+                        </span>
+                        {isEdited && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Edited
+                          </span>
+                        )}
+                        {isLowStock && !isOutOfStock && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            Low Stock
+                          </span>
+                        )}
+                        {isOutOfStock && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            Out of Stock
+                          </span>
+                        )}
                       </div>
-                    )}
-                  </TableCell>
-                  <TableCell className="px-1 py-1 text-center">
-                    {product.quantity * product.price}
-                  </TableCell>
-                  <TableCell className="px-1 py-1 text-center space-x-1">
-                    <button
-                      onClick={() => handleEdit(product)}
-                      className="px-2 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
-                    >
-                      <PencilIcon />
-                    </button>
-                    <button
-                      onClick={() => onDeleteProduct(product.id)}
-                      className="px-2 py-2 text-sm bg-red-500 text-white rounded hover:bg-red-600"
-                    >
-                      <TrashBinIcon />
-                    </button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {cart.length > 0 && (
-                <TableRow className="font-extrabold bg-gray-100">
-                  <TableCell colSpan={4} className="text-right px-4 py-2">
-                    Total Amount
-                  </TableCell>
-                  <TableCell className="text-center px-4 py-2">
-                    {totalAmount}
-                  </TableCell>
-                  <TableCell children={undefined} />
-                </TableRow>
-              )}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-center font-medium text-blue-600">
+                      ৳{product.price.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-center">
+                      <span className={`font-medium ${stockStatus.color}`}>
+                        {product.stock}
+                      </span>
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={() =>
+                            handleQuantityChange(
+                              product.id,
+                              product.quantity - 1,
+                            )
+                          }
+                          className="p-1 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={product.quantity <= 1 || isOutOfStock}
+                        >
+                          <Minus size={14} />
+                        </button>
+                        <input
+                          type="number"
+                          className="w-14 text-center border border-gray-300 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          value={product.quantity}
+                          min={0}
+                          max={product.stock}
+                          onChange={(e) => {
+                            const newQty = parseInt(e.target.value) || 0;
+                            if (newQty > product.stock) {
+                              alert(
+                                `Only ${product.stock} items available in stock!`,
+                              );
+                              return;
+                            }
+                            onUpdateQuantity(product.id, newQty);
+                          }}
+                          disabled={isOutOfStock}
+                        />
+                        <button
+                          onClick={() =>
+                            handleQuantityChange(
+                              product.id,
+                              product.quantity + 1,
+                            )
+                          }
+                          className="p-1 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={
+                            product.quantity >= product.stock || isOutOfStock
+                          }
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                      {product.quantity > product.stock && (
+                        <div className="flex items-center justify-center gap-1 text-red-500 text-xs mt-1">
+                          <AlertTriangle size={12} />
+                          <span>Max {product.stock}</span>
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-center font-semibold text-gray-800">
+                      ৳{total.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => handleEdit(product)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Edit Product"
+                        >
+                          <PencilIcon />
+                        </button>
+                        <button
+                          onClick={() => onDeleteProduct(product.id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete Product"
+                        >
+                          <TrashBinIcon />
+                        </button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+
+              {/* Total Row */}
+              <TableRow className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
+                <TableCell
+                  colSpan={5}
+                  className="px-4 py-4 text-right font-bold text-gray-800 text-lg"
+                >
+                  Total Amount
+                </TableCell>
+                <TableCell className="px-4 py-4 text-center font-bold text-blue-600 text-lg">
+                  ৳{totalAmount.toFixed(2)}
+                </TableCell>
+                <TableCell className="px-4 py-4"></TableCell>
+              </TableRow>
+
+              {/* Summary Row */}
+              <TableRow className="bg-gray-50 dark:bg-gray-800">
+                <TableCell colSpan={7} className="px-4 py-3">
+                  <div className="flex flex-wrap justify-between items-center gap-2 text-sm text-gray-500">
+                    <span>
+                      Total Items:{" "}
+                      <strong>
+                        {cart.reduce((sum, item) => sum + item.quantity, 0)}
+                      </strong>
+                    </span>
+                    <span>
+                      Unique Products: <strong>{cart.length}</strong>
+                    </span>
+                    <span>
+                      Edited:{" "}
+                      <strong className="text-green-600">
+                        {editedProducts.length}
+                      </strong>
+                    </span>
+                  </div>
+                </TableCell>
+              </TableRow>
             </TableBody>
           </Table>
         </div>
