@@ -6,13 +6,7 @@ import TableSelector from "./TableSelector";
 import TableSelectionModal from "./TableSelectionModal";
 import Alert from "../../components/ui/alert/Alert";
 import axios from "axios";
-import {
-  RefreshCw,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  Grid3x3,
-} from "lucide-react";
+import { RefreshCw, AlertTriangle, CheckCircle, XCircle, Grid3x3 } from "lucide-react";
 
 interface CartItem {
   id: number;
@@ -36,9 +30,7 @@ interface CreateSaleProps {
   preselectedTable?: Table | null;
 }
 
-export default function CreateSale({
-  preselectedTable = null,
-}: CreateSaleProps) {
+export default function CreateSale({ preselectedTable = null }: CreateSaleProps) {
   const [stockAlert, setStockAlert] = useState({
     show: false,
     message: "",
@@ -53,7 +45,6 @@ export default function CreateSale({
     return stored ? JSON.parse(stored) : null;
   });
 
-  // ✅ Cart state - load based on selected table
   const [cart, setCart] = useState<CartItem[]>([]);
   const [editedProducts, setEditedProducts] = useState<number[]>([]);
   const [currentSaleId, setCurrentSaleId] = useState<number | null>(() => {
@@ -70,7 +61,7 @@ export default function CreateSale({
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isTableModalOpen, setIsTableModalOpen] = useState(false);
 
-  // ✅ Load cart when selected table changes
+  // Load cart when selected table changes
   useEffect(() => {
     if (selectedTable) {
       loadCartForTable(selectedTable.id);
@@ -80,7 +71,7 @@ export default function CreateSale({
     }
   }, [selectedTable]);
 
-  // ✅ Save cart to localStorage when it changes
+  // Save cart to localStorage
   useEffect(() => {
     if (selectedTable) {
       const key = `cartItems_${selectedTable.id}`;
@@ -88,7 +79,6 @@ export default function CreateSale({
     }
   }, [cart, selectedTable]);
 
-  // ✅ Save edited products to localStorage when it changes
   useEffect(() => {
     if (selectedTable) {
       const key = `editedProducts_${selectedTable.id}`;
@@ -96,7 +86,6 @@ export default function CreateSale({
     }
   }, [editedProducts, selectedTable]);
 
-  // ✅ Save selected table to localStorage
   useEffect(() => {
     localStorage.setItem("selectedTable", JSON.stringify(selectedTable));
   }, [selectedTable]);
@@ -109,16 +98,13 @@ export default function CreateSale({
     localStorage.setItem("saleStatus", saleStatus);
   }, [saleStatus]);
 
-  // ✅ Function to load cart for a specific table
   const loadCartForTable = (tableId: number) => {
     const cartKey = `cartItems_${tableId}`;
     const editedKey = `editedProducts_${tableId}`;
-
+    
     const storedCart = localStorage.getItem(cartKey);
     const storedEdited = localStorage.getItem(editedKey);
-
-    console.log(`Loading cart for table ${tableId}:`, storedCart);
-
+    
     setCart(storedCart ? JSON.parse(storedCart) : []);
     setEditedProducts(storedEdited ? JSON.parse(storedEdited) : []);
   };
@@ -128,43 +114,24 @@ export default function CreateSale({
     0,
   );
 
-  const triggerAlert = (
-    message: string,
-    type: "error" | "success" | "warning" = "error",
-  ) => {
+  const triggerAlert = (message: string, type: "error" | "success" | "warning" = "error") => {
     setStockAlert({ show: true, message, type });
-    setTimeout(
-      () => setStockAlert({ show: false, message: "", type: "error" }),
-      4000,
-    );
+    setTimeout(() => setStockAlert({ show: false, message: "", type: "error" }), 4000);
   };
 
+  // Auto-save to database
   useEffect(() => {
-    const validCart = cart.filter((item) => item.quantity <= item.stock);
-    if (selectedTable) {
-      const key = `cartItems_${selectedTable.id}`;
-      localStorage.setItem(key, JSON.stringify(validCart));
-    }
-  }, [cart, selectedTable]);
-
-  // Auto-save to database when cart changes
-  useEffect(() => {
-    if (
-      cart.length > 0 &&
-      selectedTable &&
-      currentSaleId &&
-      saleStatus !== "completed"
-    ) {
+    if (cart.length > 0 && selectedTable && currentSaleId && saleStatus !== "completed") {
       autoSaveSale();
     }
   }, [cart, selectedTable, currentSaleId]);
 
   const autoSaveSale = useCallback(async () => {
     if (isSaving) return;
-
+    
     setIsSaving(true);
     try {
-      const response = await axios.put(
+      await axios.put(
         `http://localhost:8000/api/sales/${currentSaleId}`,
         {
           table_id: selectedTable?.id,
@@ -182,7 +149,6 @@ export default function CreateSale({
         },
       );
       setLastSaved(new Date());
-      console.log("Auto-saved:", response.data);
     } catch (error) {
       console.error("Auto-save failed:", error);
     } finally {
@@ -191,18 +157,12 @@ export default function CreateSale({
   }, [cart, currentSaleId, selectedTable, saleStatus, totalAmount, isSaving]);
 
   const handleTableSelect = async (table: Table) => {
-    console.log("Selecting table:", table);
     setSelectedTable(table);
     setSaleStatus("active");
-
-    // ✅ Load cart for this table
     loadCartForTable(table.id);
 
-    // Check if there's an existing sale for this table
     try {
-      const response = await axios.get(
-        `http://localhost:8000/api/sales/table/${table.id}/active`,
-      );
+      const response = await axios.get(`http://localhost:8000/api/sales/table/${table.id}/active`);
       if (response.data && response.data.data) {
         const existingSale = response.data.data;
         setCurrentSaleId(existingSale.id);
@@ -211,10 +171,9 @@ export default function CreateSale({
         return;
       }
     } catch (error) {
-      console.log("No active sale found for this table, creating new one...");
+      console.log("No active sale found, creating new one...");
     }
 
-    // Create new sale record
     try {
       const response = await axios.post(
         "http://localhost:8000/api/sales/initialize",
@@ -224,52 +183,27 @@ export default function CreateSale({
         },
       );
       setCurrentSaleId(response.data.sale_id);
-      localStorage.setItem(
-        "currentSaleId",
-        JSON.stringify(response.data.sale_id),
-      );
+      localStorage.setItem("currentSaleId", JSON.stringify(response.data.sale_id));
 
-      // Update table status to occupied if it was available
-      if (table.status === "available") {
-        await axios.put(`http://localhost:8000/api/tables/${table.id}/status`, {
-          status: "occupied",
-        });
-      }
-
-      triggerAlert(
-        `Table ${table.table_name} selected successfully!`,
-        "success",
-      );
+      triggerAlert(`Table ${table.table_name} selected successfully!`, "success");
     } catch (error: any) {
       console.error("Failed to initialize sale:", error);
       triggerAlert(
-        error.response?.data?.message ||
-          "Failed to initialize sale for this table!",
-        "error",
+        error.response?.data?.message || "Failed to initialize sale for this table!",
+        "error"
       );
     }
   };
 
-  const handleViewTables = () => {
-    setIsTableModalOpen(true);
-  };
-
-  const handleTableSelectFromModal = async (table: Table) => {
-    await handleTableSelect(table);
-    setIsTableModalOpen(false);
-  };
-
-  const handleAddToCart = (product: CartItem) => {
+  // ✅ Add product to cart and make table occupied
+  const handleAddToCart = async (product: CartItem) => {
     if (!selectedTable) {
       triggerAlert("Please select a table first!", "warning");
       return;
     }
 
     if (saleStatus === "printed" || saleStatus === "completed") {
-      triggerAlert(
-        "This bill has been completed! Please start a new sale.",
-        "warning",
-      );
+      triggerAlert("This bill has been completed! Please start a new sale.", "warning");
       return;
     }
 
@@ -278,14 +212,27 @@ export default function CreateSale({
       return;
     }
 
+    // ✅ If table is available, make it occupied when adding first product
+    if (selectedTable.status === "available" && cart.length === 0) {
+      try {
+        await axios.put(`http://localhost:8000/api/tables/${selectedTable.id}/status`, {
+          status: "occupied",
+        });
+        setSelectedTable({
+          ...selectedTable,
+          status: "occupied"
+        });
+        console.log(`✅ Table ${selectedTable.table_name} is now OCCUPIED`);
+      } catch (error) {
+        console.error("Failed to update table status:", error);
+      }
+    }
+
     setCart((prev) => {
       const existing = prev.find((item) => item.id === product.id);
       if (existing) {
         if (existing.quantity + product.quantity > product.stock) {
-          triggerAlert(
-            `${product.product_name} stock is insufficient!`,
-            "error",
-          );
+          triggerAlert(`${product.product_name} stock is insufficient!`, "error");
           return prev;
         }
         return prev.map((item) =>
@@ -321,10 +268,27 @@ export default function CreateSale({
     );
   };
 
-  const handleClearCart = () => {
+  // ✅ Clear cart and make table available
+  const handleClearCart = async () => {
     if (cart.length === 0) return;
-
+    
     if (window.confirm("Are you sure you want to clear the cart?")) {
+      // ✅ Make table available when clearing cart
+      if (selectedTable) {
+        try {
+          await axios.put(`http://localhost:8000/api/tables/${selectedTable.id}/status`, {
+            status: "available",
+          });
+          setSelectedTable({
+            ...selectedTable,
+            status: "available"
+          });
+          console.log(`✅ Table ${selectedTable.table_name} is now AVAILABLE`);
+        } catch (error) {
+          console.error("Failed to update table status:", error);
+        }
+      }
+
       setCart([]);
       setEditedProducts([]);
       setSelectedTable(null);
@@ -333,13 +297,21 @@ export default function CreateSale({
       localStorage.removeItem("selectedTable");
       localStorage.removeItem("currentSaleId");
       localStorage.removeItem("saleStatus");
-      // Remove table-specific cart data
       if (selectedTable) {
         localStorage.removeItem(`cartItems_${selectedTable.id}`);
         localStorage.removeItem(`editedProducts_${selectedTable.id}`);
       }
       triggerAlert("Cart cleared successfully!", "success");
     }
+  };
+
+  const handleViewTables = () => {
+    setIsTableModalOpen(true);
+  };
+
+  const handleTableSelectFromModal = async (table: Table) => {
+    await handleTableSelect(table);
+    setIsTableModalOpen(false);
   };
 
   const handlePrintBill = async () => {
@@ -380,11 +352,8 @@ export default function CreateSale({
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] sm:w-auto sm:max-w-md md:max-w-lg animate-slideDown">
           <Alert
             title={
-              stockAlert.type === "error"
-                ? "Error"
-                : stockAlert.type === "warning"
-                  ? "Warning"
-                  : "Success"
+              stockAlert.type === "error" ? "Error" :
+              stockAlert.type === "warning" ? "Warning" : "Success"
             }
             variant={stockAlert.type}
             message={stockAlert.message}
@@ -398,12 +367,12 @@ export default function CreateSale({
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Create Sale</h1>
             <p className="text-sm text-gray-600 mt-1">
-              {selectedTable
-                ? `Table: ${selectedTable.table_name} (${selectedTable.table_number})`
+              {selectedTable 
+                ? `Table: ${selectedTable.table_name} (${selectedTable.table_number})` 
                 : "Select a table to start"}
             </p>
           </div>
-
+          
           <div className="flex items-center gap-3">
             <button
               onClick={handleViewTables}
@@ -412,7 +381,7 @@ export default function CreateSale({
               <Grid3x3 size={18} />
               Change Table
             </button>
-
+            
             {lastSaved && (
               <div className="text-xs text-gray-400 flex items-center gap-1">
                 <RefreshCw className="w-3 h-3" />
@@ -434,26 +403,17 @@ export default function CreateSale({
 
         {/* Status Bar */}
         {selectedTable && (
-          <div
-            className={`max-w-7xl mx-auto mb-4 p-3 rounded-lg shadow-sm border ${getStatusColor()}`}
-          >
+          <div className={`max-w-7xl mx-auto mb-4 p-3 rounded-lg shadow-sm border ${getStatusColor()}`}>
             <div className="flex flex-wrap justify-between items-center gap-2">
               <div className="flex items-center gap-4 flex-wrap">
                 <span className="font-semibold flex items-center gap-2">
                   <span className="text-gray-600">Table:</span>
-                  <span className="text-gray-900">
-                    {selectedTable.table_name}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    ({selectedTable.table_number})
-                  </span>
+                  <span className="text-gray-900">{selectedTable.table_name}</span>
+                  <span className="text-xs text-gray-500">({selectedTable.table_number})</span>
                 </span>
-                <span
-                  className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor()}`}
-                >
+                <span className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor()}`}>
                   {getStatusIcon()}
-                  Status:{" "}
-                  {saleStatus.charAt(0).toUpperCase() + saleStatus.slice(1)}
+                  Status: {saleStatus.charAt(0).toUpperCase() + saleStatus.slice(1)}
                 </span>
                 {currentSaleId && (
                   <span className="text-xs text-gray-500">
@@ -462,7 +422,7 @@ export default function CreateSale({
                 )}
                 {cart.length > 0 && (
                   <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                    {cart.length} item{cart.length !== 1 ? "s" : ""}
+                    {cart.length} item{cart.length !== 1 ? 's' : ''}
                   </span>
                 )}
               </div>

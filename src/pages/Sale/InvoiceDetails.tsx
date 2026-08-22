@@ -1,15 +1,9 @@
 import axios from "axios";
 import { useState } from "react";
 import Swal from "sweetalert2";
-import {
-  Printer,
-  Trash2,
-  X,
-  Check,
-  CreditCard,
-  Wallet,
-  Smartphone,
-} from "lucide-react";
+import { Printer, Trash2, X, Check, CreditCard, Wallet, Smartphone, Utensils } from "lucide-react";
+import PrintInvoice from "../../pages/Sale/PrintInvoice";
+import KitchenPrint from "../../pages/Sale/KitchenPrint";
 
 interface CartItem {
   id: number;
@@ -58,6 +52,8 @@ export default function InvoiceDetails({
   const [showModal, setShowModal] = useState(false);
   const [invoice, setInvoice] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [showKitchenPrintModal, setShowKitchenPrintModal] = useState(false);
 
   const subTotal = cart.reduce(
     (sum, item) => sum + item.price * item.quantity,
@@ -151,18 +147,26 @@ export default function InvoiceDetails({
 
       setInvoice(response.data.invoiceNo);
 
-      // Update sale status
       if (setSaleStatus) {
         setSaleStatus("completed");
       }
 
-      // Update table status to available
       await axios.put(
         `http://localhost:8000/api/tables/${selectedTable.id}/status`,
         {
           status: "available",
         },
       );
+
+      // Show print modal instead of auto-print
+      setShowPrintModal(true);
+
+      // Reset form
+      setDiscount(0);
+      setVat(0);
+      setSd(0);
+      setPaymentMode("Cash");
+      setReceived(0);
 
       Swal.fire({
         icon: "success",
@@ -171,16 +175,6 @@ export default function InvoiceDetails({
         timer: 2000,
         showConfirmButton: false,
       });
-
-      // Print invoice
-      handlePrint();
-
-      // Reset form
-      setDiscount(0);
-      setVat(0);
-      setSd(0);
-      setPaymentMode("Cash");
-      setReceived(0);
 
       if (onClearCart) {
         onClearCart();
@@ -201,64 +195,25 @@ export default function InvoiceDetails({
   };
 
   const handlePrint = () => {
-    if (onPrintBill) {
-      onPrintBill();
-    }
+    setShowPrintModal(true);
+  };
 
-    const printContent = document.getElementById("printableArea");
-    if (!printContent) {
+  const handleKitchenPrint = () => {
+    if (cart.length === 0) {
       Swal.fire({
-        icon: "error",
-        title: "Error!",
-        text: "Print content not found.",
+        icon: "warning",
+        title: "Empty Cart",
+        text: "No items to print for kitchen.",
+        confirmButtonColor: "#3b82f6",
       });
       return;
     }
-
-    const newWindow = window.open("", "Print", "width=400,height=600");
-    if (!newWindow) {
-      Swal.fire({
-        icon: "error",
-        title: "Popup Blocked!",
-        text: "Please allow popups for this site to print invoices.",
-      });
-      return;
-    }
-
-    newWindow.document.write(`
-      <html>
-        <head>
-          <title>Invoice</title>
-          <style>
-            body { font-family: monospace; font-size: 12px; margin: 0; padding: 10px; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { padding: 2px 0; }
-            .status-printed { background-color: #fef3c7; }
-            .status-completed { background-color: #d1fae5; }
-            .text-center { text-align: center; }
-            .text-right { text-align: right; }
-            .font-bold { font-weight: bold; }
-            .border-dashed { border-top: 1px dashed #000; }
-            .border-solid { border-top: 1px solid #000; }
-          </style>
-        </head>
-        <body>
-          ${printContent.innerHTML}
-        </body>
-      </html>
-    `);
-    newWindow.document.close();
-    newWindow.focus();
-
-    setTimeout(() => {
-      newWindow.print();
-      newWindow.close();
-    }, 500);
+    setShowKitchenPrintModal(true);
   };
 
   const handleClear = () => {
     if (cart.length === 0) return;
-
+    
     Swal.fire({
       title: "Clear Cart?",
       text: "This will remove all items from the cart.",
@@ -319,9 +274,7 @@ export default function InvoiceDetails({
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 rounded-lg border border-blue-200">
           <div className="flex justify-between items-center">
             <span className="font-medium text-gray-700">Table:</span>
-            <span className="font-bold text-blue-700">
-              {selectedTable.table_name}
-            </span>
+            <span className="font-bold text-blue-700">{selectedTable.table_name}</span>
           </div>
           <div className="flex justify-between items-center mt-1">
             <span className="font-medium text-gray-700">Status:</span>
@@ -332,8 +285,8 @@ export default function InvoiceDetails({
                   : saleStatus === "printed"
                     ? "bg-yellow-100 text-yellow-700"
                     : saleStatus === "completed"
-                      ? "bg-gray-100 text-gray-700"
-                      : "bg-gray-100 text-gray-700"
+                    ? "bg-gray-100 text-gray-700"
+                    : "bg-gray-100 text-gray-700"
               }`}
             >
               {saleStatus?.toUpperCase() || "ACTIVE"}
@@ -463,9 +416,7 @@ export default function InvoiceDetails({
               ? "bg-gray-400 cursor-not-allowed"
               : "bg-green-600 hover:bg-green-700"
           }`}
-          disabled={
-            cart.length === 0 || saleStatus === "completed" || isSubmitting
-          }
+          disabled={cart.length === 0 || saleStatus === "completed" || isSubmitting}
         >
           {isSubmitting ? (
             <>
@@ -494,15 +445,44 @@ export default function InvoiceDetails({
         </button>
       </div>
 
-      {/* Print Button (when completed) */}
+      {/* Print Buttons (when items in cart) */}
+      {cart.length > 0 && saleStatus !== "completed" && (
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={handleKitchenPrint}
+            className="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors font-medium flex items-center justify-center gap-2"
+          >
+            <Utensils size={16} />
+            Kitchen Print
+          </button>
+          <button
+            onClick={() => setShowPrintModal(true)}
+            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors font-medium flex items-center justify-center gap-2"
+          >
+            <Printer size={16} />
+            Preview Bill
+          </button>
+        </div>
+      )}
+
+      {/* Print Buttons (when completed) */}
       {saleStatus === "completed" && (
-        <button
-          onClick={handlePrint}
-          className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors font-medium flex items-center justify-center gap-2"
-        >
-          <Printer size={16} />
-          Print Invoice
-        </button>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={handleKitchenPrint}
+            className="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors font-medium flex items-center justify-center gap-2"
+          >
+            <Utensils size={16} />
+            Kitchen Print
+          </button>
+          <button
+            onClick={() => setShowPrintModal(true)}
+            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors font-medium flex items-center justify-center gap-2"
+          >
+            <Printer size={16} />
+            Print Invoice
+          </button>
+        </div>
       )}
 
       {/* Cash Modal */}
@@ -557,170 +537,33 @@ export default function InvoiceDetails({
         </div>
       )}
 
-      {/* Printable Area */}
-      <div id="printableArea" className="hidden">
-        <div
-          style={{
-            fontFamily: "monospace",
-            width: "300px",
-            padding: "10px",
-            border: "1px solid #000",
-          }}
-          className={
-            saleStatus === "printed" ? "status-printed" : "status-completed"
-          }
-        >
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              fontSize: "12px",
-            }}
-          >
-            <thead>
-              <tr>
-                <th
-                  colSpan={3}
-                  style={{
-                    textAlign: "center",
-                    fontSize: "16px",
-                    borderBottom: "1px dashed #000",
-                    paddingBottom: "5px",
-                  }}
-                >
-                  My Store
-                </th>
-              </tr>
-              <tr>
-                <th
-                  colSpan={3}
-                  style={{
-                    textAlign: "center",
-                    fontSize: "12px",
-                    paddingBottom: "5px",
-                  }}
-                >
-                  Address / Phone
-                </th>
-              </tr>
-              <tr>
-                <td colSpan={2}>Date:</td>
-                <td style={{ textAlign: "right" }}>
-                  {new Date().toLocaleString()}
-                </td>
-              </tr>
-              <tr>
-                <td colSpan={2}>Invoice:</td>
-                <td style={{ textAlign: "right" }}>{invoice}</td>
-              </tr>
-              {selectedTable && (
-                <tr>
-                  <td colSpan={2}>Table:</td>
-                  <td style={{ textAlign: "right" }}>
-                    {selectedTable.table_name}
-                  </td>
-                </tr>
-              )}
-              <tr>
-                <td
-                  colSpan={3}
-                  style={{ borderBottom: "1px dashed #000" }}
-                ></td>
-              </tr>
-              <tr>
-                <th
-                  style={{ textAlign: "left", borderBottom: "1px solid #000" }}
-                >
-                  Item
-                </th>
-                <th
-                  style={{
-                    textAlign: "center",
-                    borderBottom: "1px solid #000",
-                  }}
-                >
-                  Qty
-                </th>
-                <th
-                  style={{ textAlign: "right", borderBottom: "1px solid #000" }}
-                >
-                  Price
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {cart.map((item) => (
-                <tr key={item.id}>
-                  <td>{item.product_name}</td>
-                  <td style={{ textAlign: "center" }}>{item.quantity}</td>
-                  <td style={{ textAlign: "right" }}>
-                    {(item.price * item.quantity).toFixed(2)}
-                  </td>
-                </tr>
-              ))}
-              <tr>
-                <td colSpan={3} style={{ borderTop: "1px dashed #000" }}></td>
-              </tr>
-              <tr>
-                <td>Subtotal</td>
-                <td colSpan={2} style={{ textAlign: "right" }}>
-                  {subTotal.toFixed(2)}
-                </td>
-              </tr>
-              <tr>
-                <td>Discount</td>
-                <td colSpan={2} style={{ textAlign: "right" }}>
-                  {discountAmount.toFixed(2)}
-                </td>
-              </tr>
-              <tr>
-                <td>VAT</td>
-                <td colSpan={2} style={{ textAlign: "right" }}>
-                  {vatAmount.toFixed(2)}
-                </td>
-              </tr>
-              <tr>
-                <td>SD</td>
-                <td colSpan={2} style={{ textAlign: "right" }}>
-                  {sdAmount.toFixed(2)}
-                </td>
-              </tr>
-              <tr>
-                <td style={{ fontWeight: "bold" }}>Total</td>
-                <td
-                  colSpan={2}
-                  style={{ textAlign: "right", fontWeight: "bold" }}
-                >
-                  {total.toFixed(2)}
-                </td>
-              </tr>
-              <tr>
-                <td>Received</td>
-                <td colSpan={2} style={{ textAlign: "right" }}>
-                  {received.toFixed(2)}
-                </td>
-              </tr>
-              <tr>
-                <td>Change</td>
-                <td colSpan={2} style={{ textAlign: "right" }}>
-                  {(received - total).toFixed(2)}
-                </td>
-              </tr>
-              <tr>
-                <td colSpan={3} style={{ borderTop: "1px dashed #000" }}></td>
-              </tr>
-              <tr>
-                <td
-                  colSpan={3}
-                  style={{ textAlign: "center", paddingTop: "5px" }}
-                >
-                  *** Thank You! ***
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* Kitchen Print Modal */}
+      {showKitchenPrintModal && selectedTable && (
+        <KitchenPrint
+          tableName={selectedTable.table_name}
+          tableNumber={selectedTable.table_number}
+          cart={cart}
+          invoiceNo={invoice || `ORDER-${Date.now()}`}
+          onClose={() => setShowKitchenPrintModal(false)}
+        />
+      )}
+
+      {/* Print Invoice Modal */}
+      {showPrintModal && selectedTable && (
+        <PrintInvoice
+          invoiceNo={invoice || `INV-${Date.now()}`}
+          tableName={selectedTable.table_name}
+          cart={cart}
+          total={total}
+          discount={discountAmount}
+          vat={vatAmount}
+          sd={sdAmount}
+          received={received}
+          change={received - total}
+          paymentMode={paymentMode}
+          onClose={() => setShowPrintModal(false)}
+        />
+      )}
     </div>
   );
 }
