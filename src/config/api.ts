@@ -1,5 +1,5 @@
-// Use environment variable or default
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// config/app.ts
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001';
 
 export const API_CONFIG = {
   baseURL: API_URL,

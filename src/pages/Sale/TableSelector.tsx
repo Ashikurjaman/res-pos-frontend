@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { Check, X, Clock, RefreshCw, AlertCircle } from "lucide-react";
+import { API_CONFIG } from "../../config/api";
 
 interface Table {
   id: number;
@@ -34,8 +35,18 @@ export default function TableSelector({
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get("http://localhost:8000/api/tables/all");
-      const tablesData = response.data?.data || [];
+
+      // Test with the test endpoint first
+      const url = `${API_CONFIG.baseURL}/test-tables`;
+      console.log("🔍 Testing connection:", url);
+
+      const response = await axios.get(url);
+      console.log("✅ Test response:", response.data);
+
+      // If test works, then try the real endpoint
+      const tablesUrl = `${API_CONFIG.baseURL}/api/tables/all`;
+      const tablesResponse = await axios.get(tablesUrl);
+      const tablesData = tablesResponse.data?.data || [];
       setTables(tablesData);
     } catch (error: any) {
       console.error("Failed to fetch tables:", error);
