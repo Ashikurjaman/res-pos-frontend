@@ -40,8 +40,8 @@ export default function TableSelector({
       const url = `${API_CONFIG.baseURL}/test-tables`;
       console.log("🔍 Testing connection:", url);
 
-      const response = await axios.get(url);
-      console.log("✅ Test response:", response.data);
+      // const response = await axios.get(url);
+      // console.log("✅ Test response:", response.data);
 
       // If test works, then try the real endpoint
       const tablesUrl = `${API_CONFIG.baseURL}/api/tables/all`;
