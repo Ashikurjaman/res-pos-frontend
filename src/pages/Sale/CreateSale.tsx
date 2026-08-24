@@ -53,7 +53,6 @@ export default function CreateSale({
     return stored ? JSON.parse(stored) : null;
   });
 
-  // ✅ Cart state - load based on selected table
   const [cart, setCart] = useState<CartItem[]>([]);
   const [editedProducts, setEditedProducts] = useState<number[]>([]);
   const [currentSaleId, setCurrentSaleId] = useState<number | null>(() => {
@@ -70,7 +69,7 @@ export default function CreateSale({
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isTableModalOpen, setIsTableModalOpen] = useState(false);
 
-  // ✅ Load cart when selected table changes
+  // Load cart when selected table changes
   useEffect(() => {
     if (selectedTable) {
       loadCartForTable(selectedTable.id);
@@ -80,7 +79,7 @@ export default function CreateSale({
     }
   }, [selectedTable]);
 
-  // ✅ Save cart to localStorage when it changes
+  // Save cart to localStorage
   useEffect(() => {
     if (selectedTable) {
       const key = `cartItems_${selectedTable.id}`;
@@ -88,7 +87,6 @@ export default function CreateSale({
     }
   }, [cart, selectedTable]);
 
-  // ✅ Save edited products to localStorage when it changes
   useEffect(() => {
     if (selectedTable) {
       const key = `editedProducts_${selectedTable.id}`;
@@ -96,7 +94,6 @@ export default function CreateSale({
     }
   }, [editedProducts, selectedTable]);
 
-  // ✅ Save selected table to localStorage
   useEffect(() => {
     localStorage.setItem("selectedTable", JSON.stringify(selectedTable));
   }, [selectedTable]);
@@ -109,15 +106,12 @@ export default function CreateSale({
     localStorage.setItem("saleStatus", saleStatus);
   }, [saleStatus]);
 
-  // ✅ Function to load cart for a specific table
   const loadCartForTable = (tableId: number) => {
     const cartKey = `cartItems_${tableId}`;
     const editedKey = `editedProducts_${tableId}`;
 
     const storedCart = localStorage.getItem(cartKey);
     const storedEdited = localStorage.getItem(editedKey);
-
-    console.log(`Loading cart for table ${tableId}:`, storedCart);
 
     setCart(storedCart ? JSON.parse(storedCart) : []);
     setEditedProducts(storedEdited ? JSON.parse(storedEdited) : []);
@@ -139,15 +133,7 @@ export default function CreateSale({
     );
   };
 
-  useEffect(() => {
-    const validCart = cart.filter((item) => item.quantity <= item.stock);
-    if (selectedTable) {
-      const key = `cartItems_${selectedTable.id}`;
-      localStorage.setItem(key, JSON.stringify(validCart));
-    }
-  }, [cart, selectedTable]);
-
-  // Auto-save to database when cart changes
+  // Auto-save to database
   useEffect(() => {
     if (
       cart.length > 0 &&
@@ -164,25 +150,21 @@ export default function CreateSale({
 
     setIsSaving(true);
     try {
-      const response = await axios.put(
-        `http://localhost:8000/api/sales/${currentSaleId}`,
-        {
-          table_id: selectedTable?.id,
-          products: cart.map((item) => ({
-            id: item.id,
-            name: item.product_name,
-            price: item.price,
-            quantity: item.quantity,
-            stock: item.stock,
-            vat: item.vat,
-            sd: item.sd,
-          })),
-          total: totalAmount,
-          status: saleStatus,
-        },
-      );
+      await axios.put(`http://localhost:8000/api/sales/${currentSaleId}`, {
+        table_id: selectedTable?.id,
+        products: cart.map((item) => ({
+          id: item.id,
+          name: item.product_name,
+          price: item.price,
+          quantity: item.quantity,
+          stock: item.stock,
+          vat: item.vat,
+          sd: item.sd,
+        })),
+        total: totalAmount,
+        status: saleStatus,
+      });
       setLastSaved(new Date());
-      console.log("Auto-saved:", response.data);
     } catch (error) {
       console.error("Auto-save failed:", error);
     } finally {
@@ -191,14 +173,10 @@ export default function CreateSale({
   }, [cart, currentSaleId, selectedTable, saleStatus, totalAmount, isSaving]);
 
   const handleTableSelect = async (table: Table) => {
-    console.log("Selecting table:", table);
     setSelectedTable(table);
     setSaleStatus("active");
-
-    // ✅ Load cart for this table
     loadCartForTable(table.id);
 
-    // Check if there's an existing sale for this table
     try {
       const response = await axios.get(
         `http://localhost:8000/api/sales/table/${table.id}/active`,
@@ -211,10 +189,9 @@ export default function CreateSale({
         return;
       }
     } catch (error) {
-      console.log("No active sale found for this table, creating new one...");
+      console.log("No active sale found, creating new one...");
     }
 
-    // Create new sale record
     try {
       const response = await axios.post(
         "http://localhost:8000/api/sales/initialize",
@@ -228,13 +205,6 @@ export default function CreateSale({
         "currentSaleId",
         JSON.stringify(response.data.sale_id),
       );
-
-      // Update table status to occupied if it was available
-      if (table.status === "available") {
-        await axios.put(`http://localhost:8000/api/tables/${table.id}/status`, {
-          status: "occupied",
-        });
-      }
 
       triggerAlert(
         `Table ${table.table_name} selected successfully!`,
@@ -250,16 +220,8 @@ export default function CreateSale({
     }
   };
 
-  const handleViewTables = () => {
-    setIsTableModalOpen(true);
-  };
-
-  const handleTableSelectFromModal = async (table: Table) => {
-    await handleTableSelect(table);
-    setIsTableModalOpen(false);
-  };
-
-  const handleAddToCart = (product: CartItem) => {
+  // ✅ Add product to cart and make table occupied
+  const handleAddToCart = async (product: CartItem) => {
     if (!selectedTable) {
       triggerAlert("Please select a table first!", "warning");
       return;
@@ -276,6 +238,25 @@ export default function CreateSale({
     if (product.stock <= 0 || product.quantity > product.stock) {
       triggerAlert(`${product.product_name} is out of stock!`, "error");
       return;
+    }
+
+    // ✅ If table is available, make it occupied when adding first product
+    if (selectedTable.status === "available" && cart.length === 0) {
+      try {
+        await axios.put(
+          `http://localhost:8000/api/tables/${selectedTable.id}/status`,
+          {
+            status: "occupied",
+          },
+        );
+        setSelectedTable({
+          ...selectedTable,
+          status: "occupied",
+        });
+        console.log(`✅ Table ${selectedTable.table_name} is now OCCUPIED`);
+      } catch (error) {
+        console.error("Failed to update table status:", error);
+      }
     }
 
     setCart((prev) => {
@@ -321,10 +302,30 @@ export default function CreateSale({
     );
   };
 
-  const handleClearCart = () => {
+  // ✅ Clear cart and make table available
+  const handleClearCart = async () => {
     if (cart.length === 0) return;
 
     if (window.confirm("Are you sure you want to clear the cart?")) {
+      // ✅ Make table available when clearing cart
+      if (selectedTable) {
+        try {
+          await axios.put(
+            `http://localhost:8000/api/tables/${selectedTable.id}/status`,
+            {
+              status: "available",
+            },
+          );
+          setSelectedTable({
+            ...selectedTable,
+            status: "available",
+          });
+          console.log(`✅ Table ${selectedTable.table_name} is now AVAILABLE`);
+        } catch (error) {
+          console.error("Failed to update table status:", error);
+        }
+      }
+
       setCart([]);
       setEditedProducts([]);
       setSelectedTable(null);
@@ -333,13 +334,21 @@ export default function CreateSale({
       localStorage.removeItem("selectedTable");
       localStorage.removeItem("currentSaleId");
       localStorage.removeItem("saleStatus");
-      // Remove table-specific cart data
       if (selectedTable) {
         localStorage.removeItem(`cartItems_${selectedTable.id}`);
         localStorage.removeItem(`editedProducts_${selectedTable.id}`);
       }
       triggerAlert("Cart cleared successfully!", "success");
     }
+  };
+
+  const handleViewTables = () => {
+    setIsTableModalOpen(true);
+  };
+
+  const handleTableSelectFromModal = async (table: Table) => {
+    await handleTableSelect(table);
+    setIsTableModalOpen(false);
   };
 
   const handlePrintBill = async () => {
