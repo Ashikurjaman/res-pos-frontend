@@ -10,6 +10,7 @@ import api from "../services/api";
 
 interface User {
   id: string;
+  username: string;
   email: string;
   firstName: string;
   lastName: string;
@@ -20,7 +21,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   signIn: (data: {
-    email: string;
+    usernameOrEmail: string;
     password: string;
     rememberMe: boolean;
   }) => Promise<void>;
@@ -61,17 +62,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // ✅ আপডেটেড signIn ফাংশন - Username বা Email দুটোই নিবে
   const signIn = async ({
-    email,
+    usernameOrEmail,
     password,
     rememberMe,
   }: {
-    email: string;
+    usernameOrEmail: string;
     password: string;
     rememberMe: boolean;
   }) => {
     try {
-      const response = await api.post("/auth/signin", { email, password });
+      // API তে usernameOrEmail পাঠানো হচ্ছে
+      const response = await api.post("/auth/signin", {
+        usernameOrEmail,
+        password,
+      });
+
       const { token, user: userData } = response.data;
 
       if (rememberMe) {

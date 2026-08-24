@@ -1,153 +1,138 @@
-// pages/AuthPages/SignUp.tsx
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
+// src/hooks/useAuth.tsx
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import api from "../../config/api";
 
-export default function SignUp() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+interface User {
+  id: string;
+  username: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: "admin" | "user";
+}
 
-  const { signUp } = useAuth();
-  const navigate = useNavigate();
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  signIn: (data: {
+    usernameOrEmail: string;
+    password: string;
+    rememberMe: boolean;
+  }) => Promise<void>;
+  signOut: () => Promise<void>;
+  signUp: (data: {
+    username: string;
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+  }) => Promise<void>;
+}
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const checkAuth = async () => {
+    const token =
+      localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+
+    if (!token) {
+      setLoading(false);
       return;
     }
 
-    setLoading(true);
-
     try {
-      await signUp({ email, password, firstName, lastName });
-      navigate("/signin", { replace: true });
-    } catch (err: any) {
-      setError(err.message || "Failed to sign up");
+      api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      const response = await api.get("/auth/me");
+      setUser(response.data);
+    } catch (error) {
+      localStorage.removeItem("authToken");
+      sessionStorage.removeItem("authToken");
+      delete api.defaults.headers.common["Authorization"];
+      setUser(null);
     } finally {
       setLoading(false);
     }
   };
 
+  const signIn = async ({
+    usernameOrEmail,
+    password,
+    rememberMe,
+  }: {
+    usernameOrEmail: string;
+    password: string;
+    rememberMe: boolean;
+  }) => {
+    try {
+      const response = await api.post("/auth/signin", {
+        usernameOrEmail,
+        password,
+      });
+
+      const { token, user: userData } = response.data;
+
+      if (rememberMe) {
+        localStorage.setItem("authToken", token);
+      } else {
+        sessionStorage.setItem("authToken", token);
+      }
+
+      api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      setUser(userData);
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || "Failed to sign in");
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      await api.post("/auth/signout");
+    } catch (error) {
+      // Ignore errors on signout
+    } finally {
+      localStorage.removeItem("authToken");
+      sessionStorage.removeItem("authToken");
+      delete api.defaults.headers.common["Authorization"];
+      setUser(null);
+    }
+  };
+
+  const signUp = async (data: {
+    username: string;
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+  }) => {
+    const response = await api.post("/auth/signup", data);
+    return response.data;
+  };
+
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-lg dark:bg-gray-800">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Create Account
-          </h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
-            Sign up to get started
-          </p>
-        </div>
-
-        {error && (
-          <div className="p-3 text-sm text-red-600 bg-red-100 rounded-lg dark:bg-red-900/20 dark:text-red-400">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                First Name
-              </label>
-              <input
-                type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                className="w-full px-4 py-2 mt-1 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                required
-                disabled={loading}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Last Name
-              </label>
-              <input
-                type="text"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                className="w-full px-4 py-2 mt-1 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                required
-                disabled={loading}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 mt-1 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              placeholder="you@example.com"
-              required
-              disabled={loading}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 mt-1 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              placeholder="••••••••"
-              required
-              disabled={loading}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Confirm Password
-            </label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-4 py-2 mt-1 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              placeholder="••••••••"
-              required
-              disabled={loading}
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-blue-500 dark:hover:bg-blue-600"
-          >
-            {loading ? "Creating account..." : "Sign Up"}
-          </button>
-        </form>
-
-        <p className="text-sm text-center text-gray-600 dark:text-gray-400">
-          Already have an account?{" "}
-          <Link
-            to="/signin"
-            className="text-blue-600 hover:text-blue-500 dark:text-blue-400"
-          >
-            Sign In
-          </Link>
-        </p>
-      </div>
-    </div>
+    <AuthContext.Provider value={{ user, loading, signIn, signOut, signUp }}>
+      {children}
+    </AuthContext.Provider>
   );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within AuthProvider");
+  }
+  return context;
 }

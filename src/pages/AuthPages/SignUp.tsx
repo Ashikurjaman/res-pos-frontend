@@ -1,8 +1,8 @@
 // src/pages/AuthPages/SignUp.tsx
 import PageMeta from "../../components/common/PageMeta";
-
 import SignUpForm from "../../components/auth/SignUpForm";
 import AuthLayout from "./AuthPageLayout";
+// 👈 পাথ ঠিক করুন
 
 export default function SignUp() {
   return (
