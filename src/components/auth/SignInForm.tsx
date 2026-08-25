@@ -1,41 +1,64 @@
 // src/components/auth/SignInForm.tsx
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
+import { Eye, EyeOff, Loader2, Mail, User, Lock } from "lucide-react";
 
 export default function SignInForm() {
-  const [loginIdentifier, setLoginIdentifier] = useState("");
-  const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loginIdentifier, setLoginIdentifier] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [rememberMe, setRememberMe] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
   const [loginType, setLoginType] = useState<"username" | "email">("username");
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
 
   const { signIn } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      setError("");
+      setLoading(true);
 
-    try {
-      await signIn({
-        usernameOrEmail: loginIdentifier,
-        password,
-        rememberMe,
-      });
-      navigate("/dashboard");
-    } catch (err: any) {
-      setError(err.message || "Invalid username/email or password");
-    } finally {
-      setLoading(false);
-    }
-  };
+      try {
+        await signIn({
+          usernameOrEmail: loginIdentifier,
+          password,
+          rememberMe,
+        });
+        navigate("/dashboard");
+      } catch (err: any) {
+        setError(err.message || "Invalid username/email or password");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loginIdentifier, password, rememberMe, signIn, navigate],
+  );
+
+  const handleLoginTypeChange = useCallback((type: "username" | "email") => {
+    setLoginType(type);
+    setLoginIdentifier("");
+    setError("");
+  }, []);
+
+  const toggleShowPassword = useCallback(() => {
+    setShowPassword((prev) => !prev);
+  }, []);
+
+  const getPlaceholder = useCallback(() => {
+    return loginType === "username" ? "Enter your username" : "you@example.com";
+  }, [loginType]);
+
+  const getInputType = useCallback(() => {
+    if (loginType === "email") return "email";
+    return "text";
+  }, [loginType]);
 
   return (
-    <div className="w-full">
+    <div className="w-full max-w-md mx-auto">
       {/* Logo */}
       <div className="text-center mb-8">
         <Link to="/" className="inline-block">
@@ -59,117 +82,110 @@ export default function SignInForm() {
       <div className="flex rounded-lg bg-gray-100 dark:bg-gray-700 p-1 mb-6">
         <button
           type="button"
-          onClick={() => {
-            setLoginType("username");
-            setLoginIdentifier("");
-            setError("");
-          }}
-          className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
+          onClick={() => handleLoginTypeChange("username")}
+          className={`flex-1 py-2 text-sm font-medium rounded-md transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
             loginType === "username"
               ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm"
               : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
           }`}
+          aria-pressed={loginType === "username"}
         >
+          <User size={14} className="inline mr-2" aria-hidden="true" />
           Username
         </button>
         <button
           type="button"
-          onClick={() => {
-            setLoginType("email");
-            setLoginIdentifier("");
-            setError("");
-          }}
-          className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
+          onClick={() => handleLoginTypeChange("email")}
+          className={`flex-1 py-2 text-sm font-medium rounded-md transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
             loginType === "email"
               ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm"
               : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
           }`}
+          aria-pressed={loginType === "email"}
         >
+          <Mail size={14} className="inline mr-2" aria-hidden="true" />
           Email
         </button>
       </div>
 
       {/* Error Message */}
       {error && (
-        <div className="p-3 mb-4 text-sm text-red-600 bg-red-100 rounded-lg dark:bg-red-900/20 dark:text-red-400">
+        <div
+          className="p-3 mb-4 text-sm text-red-600 bg-red-100 rounded-lg dark:bg-red-900/20 dark:text-red-400"
+          role="alert"
+          aria-live="polite"
+        >
           {error}
         </div>
       )}
 
       {/* Login Form */}
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-5" noValidate>
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label
+            htmlFor="loginIdentifier"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
             {loginType === "username" ? "Username" : "Email Address"}
           </label>
-          <input
-            type={loginType === "email" ? "email" : "text"}
-            value={loginIdentifier}
-            onChange={(e) => setLoginIdentifier(e.target.value)}
-            className="w-full px-4 py-2.5 mt-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-400"
-            placeholder={
-              loginType === "username"
-                ? "Enter your username"
-                : "you@example.com"
-            }
-            required
-            disabled={loading}
-          />
+          <div className="relative mt-1.5">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              {loginType === "username" ? (
+                <User size={18} className="text-gray-400" aria-hidden="true" />
+              ) : (
+                <Mail size={18} className="text-gray-400" aria-hidden="true" />
+              )}
+            </div>
+            <input
+              id="loginIdentifier"
+              type={getInputType()}
+              value={loginIdentifier}
+              onChange={(e) => setLoginIdentifier(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-400 disabled:opacity-50 disabled:cursor-not-allowed"
+              placeholder={getPlaceholder()}
+              required
+              disabled={loading}
+              autoComplete={loginType === "email" ? "email" : "username"}
+              aria-label={
+                loginType === "username" ? "Username" : "Email Address"
+              }
+            />
+          </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label
+            htmlFor="password"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
             Password
           </label>
-          <div className="relative">
+          <div className="relative mt-1.5">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Lock size={18} className="text-gray-400" aria-hidden="true" />
+            </div>
             <input
+              id="password"
               type={showPassword ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2.5 mt-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-400"
+              className="w-full pl-10 pr-12 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-400 disabled:opacity-50 disabled:cursor-not-allowed"
               placeholder="Enter your password"
               required
               disabled={loading}
+              autoComplete="current-password"
+              aria-label="Password"
             />
             <button
               type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+              onClick={toggleShowPassword}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg p-1"
+              aria-label={showPassword ? "Hide password" : "Show password"}
             >
               {showPassword ? (
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                  />
-                </svg>
+                <EyeOff size={20} aria-hidden="true" />
               ) : (
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
-                  />
-                </svg>
+                <Eye size={20} aria-hidden="true" />
               )}
             </button>
           </div>
@@ -181,8 +197,9 @@ export default function SignInForm() {
               type="checkbox"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
-              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={loading}
+              aria-label="Remember me"
             />
             <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
               Remember me
@@ -190,7 +207,7 @@ export default function SignInForm() {
           </label>
           <Link
             to="/reset-password"
-            className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+            className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg px-2 py-1"
           >
             Forgot password?
           </Link>
@@ -199,30 +216,15 @@ export default function SignInForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full px-4 py-2.5 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-blue-500 dark:hover:bg-blue-600 dark:focus:ring-blue-800 transition duration-200"
+          className="w-full px-4 py-2.5 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-blue-500 dark:hover:bg-blue-600 dark:focus:ring-blue-800 transition duration-200 font-medium"
         >
           {loading ? (
             <span className="flex items-center justify-center">
-              <svg
-                className="w-5 h-5 mr-2 animate-spin"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
+              <Loader2
+                size={20}
+                className="mr-2 animate-spin"
+                aria-hidden="true"
+              />
               Signing in...
             </span>
           ) : (
@@ -247,9 +249,10 @@ export default function SignInForm() {
       <div className="grid grid-cols-2 gap-3">
         <button
           type="button"
-          className="flex items-center justify-center px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700 transition duration-200"
+          className="flex items-center justify-center px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          aria-label="Sign in with Google"
         >
-          <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+          <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" aria-hidden="true">
             <path
               fill="#4285F4"
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
@@ -271,9 +274,15 @@ export default function SignInForm() {
         </button>
         <button
           type="button"
-          className="flex items-center justify-center px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700 transition duration-200"
+          className="flex items-center justify-center px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          aria-label="Sign in with X"
         >
-          <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+          <svg
+            className="w-5 h-5 mr-2"
+            fill="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
             <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
           </svg>
           X
@@ -285,7 +294,7 @@ export default function SignInForm() {
         Don't have an account?{" "}
         <Link
           to="/signup"
-          className="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+          className="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg px-2 py-1"
         >
           Sign Up
         </Link>
