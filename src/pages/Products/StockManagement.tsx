@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import axios from "axios";
 import {
   Table,
@@ -23,6 +23,7 @@ import {
   X,
 } from "lucide-react";
 import Swal from "sweetalert2";
+import { API_CONFIG } from "../../config/api";
 
 interface ProductStock {
   id: number;
@@ -38,19 +39,27 @@ interface ProductStock {
   sd: number;
 }
 
+interface StockStatus {
+  label: string;
+  color: string;
+  icon: JSX.Element;
+}
+
 export default function StockManagement() {
   const [products, setProducts] = useState<ProductStock[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState<boolean>(true);
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [filteredProducts, setFilteredProducts] = useState<ProductStock[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editValue, setEditValue] = useState<string>("");
-  const [updating, setUpdating] = useState(false);
+  const [updating, setUpdating] = useState<boolean>(false);
 
+  // Fetch products on mount
   useEffect(() => {
     fetchProducts();
   }, []);
 
+  // Filter products based on search term
   useEffect(() => {
     if (searchTerm.trim() === "") {
       setFilteredProducts(products);
@@ -66,144 +75,200 @@ export default function StockManagement() {
     }
   }, [searchTerm, products]);
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
       setLoading(true);
       const response = await axios.get(
-        "http://localhost:8000/api/products/with-stock",
+        `${API_CONFIG.baseURL}/api/products/with-stock`,
       );
-      console.log("Products with stock:", response.data);
 
       const productsData = response.data.data || [];
       setProducts(productsData);
       setFilteredProducts(productsData);
     } catch (error) {
       console.error("Error fetching products:", error);
+
+      let errorMessage = "Failed to load products with stock.";
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          errorMessage =
+            error.response.data?.message ||
+            error.response.statusText ||
+            `Server error: ${error.response.status}`;
+        } else if (error.request) {
+          errorMessage = "Network error - please check your connection";
+        }
+      }
+
       Swal.fire({
         icon: "error",
         title: "Error!",
-        text: "Failed to load products with stock.",
+        text: errorMessage,
         confirmButtonColor: "#3b82f6",
       });
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleEditStock = (product: ProductStock) => {
+  const handleEditStock = useCallback((product: ProductStock) => {
     setEditingId(product.id);
     setEditValue(product.stock.toString());
-  };
+  }, []);
 
-  const handleCancelEdit = () => {
+  const handleCancelEdit = useCallback(() => {
     setEditingId(null);
     setEditValue("");
-  };
+  }, []);
 
-  const handleUpdateStock = async (id: number) => {
-    const stockValue = parseInt(editValue);
+  const handleUpdateStock = useCallback(
+    async (id: number) => {
+      const stockValue = parseInt(editValue);
 
-    if (isNaN(stockValue) || stockValue < 0) {
-      Swal.fire({
-        icon: "warning",
-        title: "Invalid Stock",
-        text: "Please enter a valid stock quantity (0 or more).",
-        confirmButtonColor: "#3b82f6",
-      });
-      return;
-    }
+      if (isNaN(stockValue) || stockValue < 0) {
+        Swal.fire({
+          icon: "warning",
+          title: "Invalid Stock",
+          text: "Please enter a valid stock quantity (0 or more).",
+          confirmButtonColor: "#3b82f6",
+        });
+        return;
+      }
 
-    setUpdating(true);
-    try {
-      const response = await axios.put(
-        `http://localhost:8000/api/products/${id}/stock`,
-        { stock: stockValue },
-      );
+      setUpdating(true);
+      try {
+        await axios.put(`${API_CONFIG.baseURL}/api/products/${id}/stock`, {
+          stock: stockValue,
+        });
 
-      // Update local state
-      setProducts((prev) =>
-        prev.map((p) =>
-          p.id === id
-            ? {
-                ...p,
-                stock: stockValue,
-                prv_stock: p.stock,
-                after_stock: stockValue,
-              }
-            : p,
-        ),
-      );
+        // Update local state
+        setProducts((prev) =>
+          prev.map((p) =>
+            p.id === id
+              ? {
+                  ...p,
+                  stock: stockValue,
+                  prv_stock: p.stock,
+                  after_stock: stockValue,
+                }
+              : p,
+          ),
+        );
 
-      Swal.fire({
-        icon: "success",
-        title: "Stock Updated!",
-        text: "Product stock updated successfully!",
-        timer: 2000,
-        showConfirmButton: false,
-        position: "top-end",
-      });
+        Swal.fire({
+          icon: "success",
+          title: "Stock Updated!",
+          text: "Product stock updated successfully!",
+          timer: 2000,
+          showConfirmButton: false,
+          position: "top-end",
+        });
 
-      setEditingId(null);
-      setEditValue("");
-    } catch (error: any) {
-      console.error("Error updating stock:", error);
-      Swal.fire({
-        icon: "error",
-        title: "Update Failed!",
-        text: error.response?.data?.message || "Failed to update stock.",
-        confirmButtonColor: "#3b82f6",
-      });
-    } finally {
-      setUpdating(false);
-    }
-  };
+        setEditingId(null);
+        setEditValue("");
+      } catch (error: any) {
+        console.error("Error updating stock:", error);
 
-  const getStockStatus = (stock: number) => {
+        let errorMessage = "Failed to update stock.";
+        if (axios.isAxiosError(error)) {
+          if (error.response) {
+            errorMessage =
+              error.response.data?.message ||
+              error.response.statusText ||
+              `Server error: ${error.response.status}`;
+          } else if (error.request) {
+            errorMessage = "Network error - please check your connection";
+          }
+        }
+
+        Swal.fire({
+          icon: "error",
+          title: "Update Failed!",
+          text: errorMessage,
+          confirmButtonColor: "#3b82f6",
+        });
+      } finally {
+        setUpdating(false);
+      }
+    },
+    [editValue],
+  );
+
+  const getStockStatus = useCallback((stock: number): StockStatus => {
     if (stock <= 0)
       return {
         label: "Out of Stock",
         color: "text-red-600 bg-red-50",
-        icon: <AlertCircle size={14} className="text-red-600" />,
+        icon: (
+          <AlertCircle size={14} className="text-red-600" aria-hidden="true" />
+        ),
       };
     if (stock <= 5)
       return {
         label: "Low Stock",
         color: "text-yellow-600 bg-yellow-50",
-        icon: <AlertCircle size={14} className="text-yellow-600" />,
+        icon: (
+          <AlertCircle
+            size={14}
+            className="text-yellow-600"
+            aria-hidden="true"
+          />
+        ),
       };
     if (stock <= 20)
       return {
         label: "Medium Stock",
         color: "text-blue-600 bg-blue-50",
-        icon: <AlertCircle size={14} className="text-blue-600" />,
+        icon: (
+          <AlertCircle size={14} className="text-blue-600" aria-hidden="true" />
+        ),
       };
     return {
       label: "High Stock",
       color: "text-green-600 bg-green-50",
-      icon: <AlertCircle size={14} className="text-green-600" />,
+      icon: (
+        <AlertCircle size={14} className="text-green-600" aria-hidden="true" />
+      ),
     };
-  };
+  }, []);
 
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(() => {
     fetchProducts();
     setSearchTerm("");
-  };
+  }, [fetchProducts]);
 
-  // Calculate total stock
-  const totalStock = products.reduce((sum, p) => sum + p.stock, 0);
-  const totalProducts = products.length;
-  const lowStockCount = products.filter(
-    (p) => p.stock <= 5 && p.stock > 0,
-  ).length;
-  const outOfStockCount = products.filter((p) => p.stock <= 0).length;
+  const handleClearSearch = useCallback(() => {
+    setSearchTerm("");
+  }, []);
 
+  // Memoized calculations
+  const stats = useMemo(() => {
+    const totalStock = products.reduce((sum, p) => sum + p.stock, 0);
+    const totalProducts = products.length;
+    const lowStockCount = products.filter(
+      (p) => p.stock <= 5 && p.stock > 0,
+    ).length;
+    const outOfStockCount = products.filter((p) => p.stock <= 0).length;
+
+    return {
+      totalStock,
+      totalProducts,
+      lowStockCount,
+      outOfStockCount,
+    };
+  }, [products]);
+
+  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 p-4 md:p-6">
         <PageBreadcrumb pageTitle="Stock Management" />
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
+            <Loader2
+              className="w-10 h-10 animate-spin text-blue-500"
+              aria-hidden="true"
+            />
             <p className="text-gray-500 text-sm">Loading stock data...</p>
           </div>
         </div>
@@ -227,11 +292,15 @@ export default function StockManagement() {
               <div>
                 <p className="text-sm text-gray-500">Total Products</p>
                 <p className="text-2xl font-bold text-gray-900 mt-1">
-                  {totalProducts}
+                  {stats.totalProducts}
                 </p>
               </div>
               <div className="bg-blue-50 p-3 rounded-lg">
-                <Package size={24} className="text-blue-600" />
+                <Package
+                  size={24}
+                  className="text-blue-600"
+                  aria-hidden="true"
+                />
               </div>
             </div>
           </div>
@@ -241,11 +310,15 @@ export default function StockManagement() {
               <div>
                 <p className="text-sm text-gray-500">Total Stock</p>
                 <p className="text-2xl font-bold text-gray-900 mt-1">
-                  {totalStock}
+                  {stats.totalStock}
                 </p>
               </div>
               <div className="bg-green-50 p-3 rounded-lg">
-                <TrendingUp size={24} className="text-green-600" />
+                <TrendingUp
+                  size={24}
+                  className="text-green-600"
+                  aria-hidden="true"
+                />
               </div>
             </div>
           </div>
@@ -255,11 +328,15 @@ export default function StockManagement() {
               <div>
                 <p className="text-sm text-gray-500">Low Stock</p>
                 <p className="text-2xl font-bold text-yellow-600 mt-1">
-                  {lowStockCount}
+                  {stats.lowStockCount}
                 </p>
               </div>
               <div className="bg-yellow-50 p-3 rounded-lg">
-                <TrendingDown size={24} className="text-yellow-600" />
+                <TrendingDown
+                  size={24}
+                  className="text-yellow-600"
+                  aria-hidden="true"
+                />
               </div>
             </div>
           </div>
@@ -269,11 +346,15 @@ export default function StockManagement() {
               <div>
                 <p className="text-sm text-gray-500">Out of Stock</p>
                 <p className="text-2xl font-bold text-red-600 mt-1">
-                  {outOfStockCount}
+                  {stats.outOfStockCount}
                 </p>
               </div>
               <div className="bg-red-50 p-3 rounded-lg">
-                <AlertCircle size={24} className="text-red-600" />
+                <AlertCircle
+                  size={24}
+                  className="text-red-600"
+                  aria-hidden="true"
+                />
               </div>
             </div>
           </div>
@@ -287,6 +368,7 @@ export default function StockManagement() {
               <Search
                 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
                 size={18}
+                aria-hidden="true"
               />
               <input
                 type="text"
@@ -294,14 +376,19 @@ export default function StockManagement() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                aria-label="Search products"
               />
             </div>
             <button
               onClick={handleRefresh}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm"
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
               disabled={loading}
             >
-              <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+              <RefreshCw
+                size={16}
+                className={loading ? "animate-spin" : ""}
+                aria-hidden="true"
+              />
               Refresh
             </button>
           </div>
@@ -368,7 +455,10 @@ export default function StockManagement() {
                     <TableRow>
                       <TableCell colSpan={8} className="text-center py-8">
                         <div className="flex flex-col items-center gap-2">
-                          <Package className="w-12 h-12 text-gray-300" />
+                          <Package
+                            className="w-12 h-12 text-gray-300"
+                            aria-hidden="true"
+                          />
                           <p className="text-gray-500">
                             {searchTerm
                               ? "No products match your search"
@@ -376,8 +466,8 @@ export default function StockManagement() {
                           </p>
                           {searchTerm && (
                             <button
-                              onClick={() => setSearchTerm("")}
-                              className="text-sm text-blue-600 hover:text-blue-700"
+                              onClick={handleClearSearch}
+                              className="text-sm text-blue-600 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1"
                             >
                               Clear search
                             </button>
@@ -426,6 +516,7 @@ export default function StockManagement() {
                                   className="w-20 text-center border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                   min="0"
                                   autoFocus
+                                  aria-label="Edit stock quantity"
                                 />
                               </div>
                             ) : (
@@ -449,34 +540,38 @@ export default function StockManagement() {
                               <div className="flex items-center justify-center gap-1">
                                 <button
                                   onClick={() => handleUpdateStock(product.id)}
-                                  className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                  className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-green-500"
                                   disabled={updating}
                                   title="Save"
+                                  aria-label="Save stock update"
                                 >
                                   {updating ? (
                                     <Loader2
                                       size={18}
                                       className="animate-spin"
+                                      aria-hidden="true"
                                     />
                                   ) : (
-                                    <Check size={18} />
+                                    <Check size={18} aria-hidden="true" />
                                   )}
                                 </button>
                                 <button
                                   onClick={handleCancelEdit}
-                                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
                                   title="Cancel"
+                                  aria-label="Cancel editing"
                                 >
-                                  <X size={18} />
+                                  <X size={18} aria-hidden="true" />
                                 </button>
                               </div>
                             ) : (
                               <button
                                 onClick={() => handleEditStock(product)}
-                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 title="Edit Stock"
+                                aria-label={`Edit stock for ${product.product_name}`}
                               >
-                                <Edit2 size={18} />
+                                <Edit2 size={18} aria-hidden="true" />
                               </button>
                             )}
                           </TableCell>
@@ -491,21 +586,25 @@ export default function StockManagement() {
 
           {/* Footer */}
           {filteredProducts.length > 0 && (
-            <div className="flex justify-between items-center text-sm text-gray-500 mt-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-sm text-gray-500 mt-4">
               <span>
                 Showing {filteredProducts.length} of {products.length} products
               </span>
-              <div className="flex gap-4">
+              <div className="flex flex-wrap gap-4">
                 <span>
-                  Total Stock: <strong>{totalStock}</strong>
+                  Total Stock: <strong>{stats.totalStock}</strong>
                 </span>
                 <span>
                   Low Stock:{" "}
-                  <strong className="text-yellow-600">{lowStockCount}</strong>
+                  <strong className="text-yellow-600">
+                    {stats.lowStockCount}
+                  </strong>
                 </span>
                 <span>
                   Out of Stock:{" "}
-                  <strong className="text-red-600">{outOfStockCount}</strong>
+                  <strong className="text-red-600">
+                    {stats.outOfStockCount}
+                  </strong>
                 </span>
               </div>
             </div>

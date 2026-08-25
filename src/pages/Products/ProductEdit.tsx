@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router";
 import axios from "axios";
 import Input from "../../components/form/input/InputField";
@@ -17,6 +17,7 @@ import {
   Package,
   Trash2,
 } from "lucide-react";
+import { API_CONFIG } from "../../config/api";
 
 type OptionType = { value: string; label: string };
 
@@ -47,24 +48,34 @@ export default function ProductEdit() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [product, setProduct] = useState<ProductType | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [saving, setSaving] = useState<boolean>(false);
   const [categories, setCategories] = useState<OptionType[]>([]);
   const [units, setUnits] = useState<OptionType[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [originalData, setOriginalData] = useState<ProductType | null>(null);
 
+  // Product types options
+  const productTypes: OptionType[] = useMemo(
+    () => [
+      { value: "1", label: "Kitchen" },
+      { value: "2", label: "Juice" },
+      { value: "3", label: "Others" },
+    ],
+    [],
+  );
+
+  // Fetch product on mount
   useEffect(() => {
     if (id) {
       fetchProduct();
     }
   }, [id]);
 
-  const fetchProduct = async () => {
+  const fetchProduct = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`http://localhost:8000/api/products/${id}`);
-      console.log("Product data:", res.data);
+      const res = await axios.get(`${API_CONFIG.baseURL}/api/products/${id}`);
 
       const productData = res.data.products || res.data;
       setProduct(productData);
@@ -87,46 +98,64 @@ export default function ProductEdit() {
       setUnits(unitOptions);
     } catch (error) {
       console.error("Error fetching product:", error);
+
+      let errorMessage = "Failed to load product data.";
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          errorMessage =
+            error.response.data?.message ||
+            error.response.statusText ||
+            `Server error: ${error.response.status}`;
+        } else if (error.request) {
+          errorMessage = "Network error - please check your connection";
+        }
+      }
+
       Swal.fire({
         icon: "error",
         title: "Error!",
-        text: "Failed to load product data.",
+        text: errorMessage,
         confirmButtonColor: "#3b82f6",
       });
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { id, value } = e.target;
-    if (product) {
-      setProduct({ ...product, [id]: value });
-      if (errors[id]) {
-        setErrors((prev) => ({ ...prev, [id]: "" }));
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const { id, value } = e.target;
+      if (product) {
+        setProduct({ ...product, [id]: value });
+        if (errors[id]) {
+          setErrors((prev) => ({ ...prev, [id]: "" }));
+        }
       }
-    }
-  };
+    },
+    [product, errors],
+  );
 
-  const handleSelectChange = (
-    field: keyof ProductType,
-    value: OptionType | null,
-  ) => {
-    if (product && value) {
-      setProduct({ ...product, [field]: value.value });
-      if (errors[field]) {
-        setErrors((prev) => ({ ...prev, [field]: "" }));
+  const handleSelectChange = useCallback(
+    (field: keyof ProductType, value: OptionType | null) => {
+      if (product && value) {
+        setProduct({ ...product, [field]: value.value });
+        if (errors[field]) {
+          setErrors((prev) => ({ ...prev, [field]: "" }));
+        }
       }
-    }
-  };
+    },
+    [product, errors],
+  );
 
-  const validate = () => {
+  const validate = useCallback(() => {
     const newErrors: Record<string, string> = {};
 
     if (!product?.product_name?.trim()) {
       newErrors.product_name = "Product name is required";
     } else if (product.product_name.trim().length < 2) {
       newErrors.product_name = "Product name must be at least 2 characters";
+    } else if (product.product_name.trim().length > 100) {
+      newErrors.product_name = "Product name must be less than 100 characters";
     }
 
     if (!product?.category_id) {
@@ -147,35 +176,35 @@ export default function ProductEdit() {
       isNaN(parseFloat(product.price)) ||
       parseFloat(product.price) <= 0
     ) {
-      newErrors.price = "Please enter a valid price";
+      newErrors.price = "Please enter a valid price greater than 0";
     }
 
     if (
       product?.stock &&
       (isNaN(parseFloat(product.stock)) || parseFloat(product.stock) < 0)
     ) {
-      newErrors.stock = "Please enter a valid stock quantity";
+      newErrors.stock = "Please enter a valid stock quantity (0 or more)";
     }
 
     if (
       product?.vat &&
       (isNaN(parseFloat(product.vat)) || parseFloat(product.vat) < 0)
     ) {
-      newErrors.vat = "Please enter a valid VAT percentage";
+      newErrors.vat = "Please enter a valid VAT percentage (0 or more)";
     }
 
     if (
       product?.sd &&
       (isNaN(parseFloat(product.sd)) || parseFloat(product.sd) < 0)
     ) {
-      newErrors.sd = "Please enter a valid SD percentage";
+      newErrors.sd = "Please enter a valid SD percentage (0 or more)";
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
+  }, [product]);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!validate() || !product) return;
 
     setSaving(true);
@@ -191,9 +220,7 @@ export default function ProductEdit() {
         sd: parseFloat(product.sd) || 0,
       };
 
-      console.log("Updating product:", payload);
-
-      await axios.put(`http://localhost:8000/api/products/${id}`, payload);
+      await axios.put(`${API_CONFIG.baseURL}/api/products/${id}`, payload);
 
       Swal.fire({
         icon: "success",
@@ -209,11 +236,15 @@ export default function ProductEdit() {
       console.error("Error updating product:", error);
 
       let errorMessage = "Failed to update product!";
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.response?.data?.errors) {
-        const errorList = Object.values(error.response.data.errors).flat();
-        errorMessage = errorList.join(", ");
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          errorMessage =
+            error.response.data?.message ||
+            error.response.statusText ||
+            `Server error: ${error.response.status}`;
+        } else if (error.request) {
+          errorMessage = "Network error - please check your connection";
+        }
       }
 
       Swal.fire({
@@ -225,9 +256,9 @@ export default function ProductEdit() {
     } finally {
       setSaving(false);
     }
-  };
+  }, [product, validate, id, navigate]);
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     if (JSON.stringify(product) !== JSON.stringify(originalData)) {
       Swal.fire({
         title: "Unsaved Changes",
@@ -246,9 +277,9 @@ export default function ProductEdit() {
     } else {
       navigate("/products-list");
     }
-  };
+  }, [product, originalData, navigate]);
 
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
     const result = await Swal.fire({
       title: "Delete Product?",
       text: `Are you sure you want to delete "${product?.product_name}"?`,
@@ -263,7 +294,8 @@ export default function ProductEdit() {
     if (!result.isConfirmed) return;
 
     try {
-      await axios.delete(`http://localhost:8000/api/products/${id}`);
+      await axios.delete(`${API_CONFIG.baseURL}/api/products/${id}`);
+
       Swal.fire({
         icon: "success",
         title: "Deleted!",
@@ -273,28 +305,59 @@ export default function ProductEdit() {
       });
       navigate("/products-list");
     } catch (error: any) {
+      console.error("Error deleting product:", error);
+
+      let errorMessage = "Failed to delete product.";
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          errorMessage =
+            error.response.data?.message ||
+            error.response.statusText ||
+            `Server error: ${error.response.status}`;
+        } else if (error.request) {
+          errorMessage = "Network error - please check your connection";
+        }
+      }
+
       Swal.fire({
         icon: "error",
         title: "Delete Failed!",
-        text: error.response?.data?.message || "Failed to delete product.",
+        text: errorMessage,
         confirmButtonColor: "#3b82f6",
       });
     }
-  };
+  }, [product, id, navigate]);
 
-  const productTypes: OptionType[] = [
-    { value: "1", label: "Kitchen" },
-    { value: "2", label: "Juice" },
-    { value: "3", label: "Others" },
-  ];
+  // Helper functions
+  const getCurrentCategory = useCallback(() => {
+    return (
+      categories.find((c) => c.value === product?.category_id?.toString()) ||
+      null
+    );
+  }, [categories, product]);
 
+  const getCurrentUnit = useCallback(() => {
+    return units.find((u) => u.value === product?.unit?.toString()) || null;
+  }, [units, product]);
+
+  const getCurrentProductType = useCallback(() => {
+    return (
+      productTypes.find((t) => t.value === product?.product_type?.toString()) ||
+      null
+    );
+  }, [productTypes, product]);
+
+  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 p-4 md:p-6">
         <PageBreadcrumb pageTitle="Edit Product" />
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
+            <Loader2
+              className="w-10 h-10 animate-spin text-blue-500"
+              aria-hidden="true"
+            />
             <p className="text-gray-500 text-sm">Loading product data...</p>
           </div>
         </div>
@@ -302,13 +365,17 @@ export default function ProductEdit() {
     );
   }
 
+  // Not found state
   if (!product) {
     return (
       <div className="min-h-screen bg-gray-50 p-4 md:p-6">
         <PageBreadcrumb pageTitle="Edit Product" />
         <div className="flex items-center justify-center h-64">
           <div className="bg-red-50 border border-red-200 rounded-lg p-8 text-center max-w-md">
-            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+            <AlertCircle
+              className="w-12 h-12 text-red-500 mx-auto mb-3"
+              aria-hidden="true"
+            />
             <h3 className="text-lg font-semibold text-red-700">
               Product Not Found
             </h3>
@@ -317,7 +384,7 @@ export default function ProductEdit() {
             </p>
             <button
               onClick={handleBack}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             >
               Back to Product List
             </button>
@@ -326,24 +393,6 @@ export default function ProductEdit() {
       </div>
     );
   }
-
-  const getCurrentCategory = () => {
-    return (
-      categories.find((c) => c.value === product.category_id?.toString()) ||
-      null
-    );
-  };
-
-  const getCurrentUnit = () => {
-    return units.find((u) => u.value === product.unit?.toString()) || null;
-  };
-
-  const getCurrentProductType = () => {
-    return (
-      productTypes.find((t) => t.value === product.product_type?.toString()) ||
-      null
-    );
-  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
@@ -364,7 +413,7 @@ export default function ProductEdit() {
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Product Name */}
-                <div>
+                <div className="md:col-span-2">
                   <Label
                     htmlFor="product_name"
                     className="text-sm font-medium text-gray-700"
@@ -380,10 +429,16 @@ export default function ProductEdit() {
                     className={`mt-1 ${errors.product_name ? "border-red-500 focus:ring-red-500" : ""}`}
                     disabled={saving}
                     autoFocus
+                    aria-describedby={
+                      errors.product_name ? "product_name-error" : undefined
+                    }
                   />
                   {errors.product_name && (
-                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                      <AlertCircle size={14} />
+                    <p
+                      id="product_name-error"
+                      className="mt-1 text-sm text-red-600 flex items-center gap-1"
+                    >
+                      <AlertCircle size={14} aria-hidden="true" />
                       {errors.product_name}
                     </p>
                   )}
@@ -404,7 +459,7 @@ export default function ProductEdit() {
                   />
                   {errors.category_id && (
                     <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                      <AlertCircle size={14} />
+                      <AlertCircle size={14} aria-hidden="true" />
                       {errors.category_id}
                     </p>
                   )}
@@ -425,7 +480,7 @@ export default function ProductEdit() {
                   />
                   {errors.product_type && (
                     <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                      <AlertCircle size={14} />
+                      <AlertCircle size={14} aria-hidden="true" />
                       {errors.product_type}
                     </p>
                   )}
@@ -449,10 +504,14 @@ export default function ProductEdit() {
                     disabled={saving}
                     step="0.01"
                     min="0"
+                    aria-describedby={errors.price ? "price-error" : undefined}
                   />
                   {errors.price && (
-                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                      <AlertCircle size={14} />
+                    <p
+                      id="price-error"
+                      className="mt-1 text-sm text-red-600 flex items-center gap-1"
+                    >
+                      <AlertCircle size={14} aria-hidden="true" />
                       {errors.price}
                     </p>
                   )}
@@ -473,7 +532,7 @@ export default function ProductEdit() {
                   />
                   {errors.unit && (
                     <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                      <AlertCircle size={14} />
+                      <AlertCircle size={14} aria-hidden="true" />
                       {errors.unit}
                     </p>
                   )}
@@ -497,10 +556,14 @@ export default function ProductEdit() {
                     disabled={saving}
                     min="0"
                     step="1"
+                    aria-describedby={errors.stock ? "stock-error" : undefined}
                   />
                   {errors.stock && (
-                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                      <AlertCircle size={14} />
+                    <p
+                      id="stock-error"
+                      className="mt-1 text-sm text-red-600 flex items-center gap-1"
+                    >
+                      <AlertCircle size={14} aria-hidden="true" />
                       {errors.stock}
                     </p>
                   )}
@@ -525,10 +588,14 @@ export default function ProductEdit() {
                     step="0.01"
                     min="0"
                     max="100"
+                    aria-describedby={errors.vat ? "vat-error" : undefined}
                   />
                   {errors.vat && (
-                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                      <AlertCircle size={14} />
+                    <p
+                      id="vat-error"
+                      className="mt-1 text-sm text-red-600 flex items-center gap-1"
+                    >
+                      <AlertCircle size={14} aria-hidden="true" />
                       {errors.vat}
                     </p>
                   )}
@@ -553,10 +620,14 @@ export default function ProductEdit() {
                     step="0.01"
                     min="0"
                     max="100"
+                    aria-describedby={errors.sd ? "sd-error" : undefined}
                   />
                   {errors.sd && (
-                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                      <AlertCircle size={14} />
+                    <p
+                      id="sd-error"
+                      className="mt-1 text-sm text-red-600 flex items-center gap-1"
+                    >
+                      <AlertCircle size={14} aria-hidden="true" />
                       {errors.sd}
                     </p>
                   )}
@@ -568,26 +639,30 @@ export default function ProductEdit() {
                 <Button
                   type="button"
                   onClick={handleBack}
-                  className="flex items-center justify-center gap-2 bg-gray-500 hover:bg-gray-600 text-white px-6 py-2.5 rounded-lg transition-colors w-full sm:w-auto"
+                  className="flex items-center justify-center gap-2 bg-gray-500 hover:bg-gray-600 text-white px-6 py-2.5 rounded-lg transition-colors w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
                   disabled={saving}
                 >
-                  <ArrowLeft size={18} />
+                  <ArrowLeft size={18} aria-hidden="true" />
                   Back to List
                 </Button>
                 <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                   <Button
                     type="submit"
-                    className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg transition-colors w-full sm:w-auto min-w-[140px]"
+                    className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg transition-colors w-full sm:w-auto min-w-[140px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                     disabled={saving}
                   >
                     {saving ? (
                       <>
-                        <Loader2 size={18} className="animate-spin" />
+                        <Loader2
+                          size={18}
+                          className="animate-spin"
+                          aria-hidden="true"
+                        />
                         Saving...
                       </>
                     ) : (
                       <>
-                        <Save size={18} />
+                        <Save size={18} aria-hidden="true" />
                         Update Product
                       </>
                     )}
@@ -599,7 +674,7 @@ export default function ProductEdit() {
 
           {/* Delete Option */}
           <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-3">
               <div>
                 <h4 className="text-sm font-medium text-red-800">
                   Danger Zone
@@ -610,9 +685,9 @@ export default function ProductEdit() {
               </div>
               <button
                 onClick={handleDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium flex items-center gap-2"
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
               >
-                <Trash2 size={16} />
+                <Trash2 size={16} aria-hidden="true" />
                 Delete Product
               </button>
             </div>
@@ -622,7 +697,11 @@ export default function ProductEdit() {
           <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="flex items-start gap-3">
               <div className="flex-shrink-0 mt-0.5">
-                <Package size={20} className="text-blue-600" />
+                <Package
+                  size={20}
+                  className="text-blue-600"
+                  aria-hidden="true"
+                />
               </div>
               <div>
                 <h4 className="text-sm font-medium text-blue-800">Edit Tips</h4>

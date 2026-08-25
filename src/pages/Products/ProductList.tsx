@@ -8,7 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router";
 import {
@@ -22,6 +22,7 @@ import {
   Package,
 } from "lucide-react";
 import Swal from "sweetalert2";
+import { API_CONFIG } from "../../config/api";
 
 type ProductType = {
   id: number;
@@ -49,13 +50,14 @@ export default function ProductList() {
   const [products, setProducts] = useState<ProductType[]>([]);
   const [categories, setCategories] = useState<CategoryType[]>([]);
   const [units, setUnits] = useState<UnitType[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState<boolean>(true);
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [filteredProducts, setFilteredProducts] = useState<ProductType[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
 
   const navigate = useNavigate();
 
+  // Fetch products on mount
   useEffect(() => {
     fetchProducts();
   }, []);
@@ -82,11 +84,10 @@ export default function ProductList() {
     setFilteredProducts(filtered);
   }, [searchTerm, selectedCategory, products]);
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await axios.get("http://localhost:8000/api/products");
-      console.log("Products response:", res.data);
+      const res = await axios.get(`${API_CONFIG.baseURL}/api/products`);
 
       setProducts(res.data.products.data || res.data.products || []);
       setCategories(res.data.categories || []);
@@ -94,26 +95,45 @@ export default function ProductList() {
       setFilteredProducts(res.data.products.data || res.data.products || []);
     } catch (error) {
       console.error("Error fetching products:", error);
+
+      let errorMessage = "Failed to load products.";
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          errorMessage =
+            error.response.data?.message ||
+            error.response.statusText ||
+            `Server error: ${error.response.status}`;
+        } else if (error.request) {
+          errorMessage = "Network error - please check your connection";
+        }
+      }
+
       Swal.fire({
         icon: "error",
         title: "Error!",
-        text: "Failed to load products.",
+        text: errorMessage,
         confirmButtonColor: "#3b82f6",
       });
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleEdit = (id: number) => {
-    navigate(`/products-edit/${id}`);
-  };
+  const handleEdit = useCallback(
+    (id: number) => {
+      navigate(`/products-edit/${id}`);
+    },
+    [navigate],
+  );
 
-  const handleView = (id: number) => {
-    navigate(`/products/${id}`);
-  };
+  const handleView = useCallback(
+    (id: number) => {
+      navigate(`/products/${id}`);
+    },
+    [navigate],
+  );
 
-  const handleDelete = async (id: number, productName: string) => {
+  const handleDelete = useCallback(async (id: number, productName: string) => {
     const result = await Swal.fire({
       title: "Delete Product?",
       text: `Are you sure you want to delete "${productName}"?`,
@@ -128,7 +148,7 @@ export default function ProductList() {
     if (!result.isConfirmed) return;
 
     try {
-      await axios.delete(`http://localhost:8000/api/products/${id}`);
+      await axios.delete(`${API_CONFIG.baseURL}/api/products/${id}`);
 
       setProducts((prev) => prev.filter((p) => p.id !== id));
       setFilteredProducts((prev) => prev.filter((p) => p.id !== id));
@@ -142,47 +162,84 @@ export default function ProductList() {
       });
     } catch (error: any) {
       console.error("Error deleting product:", error);
+
+      let errorMessage = "Failed to delete product.";
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          errorMessage =
+            error.response.data?.message ||
+            error.response.statusText ||
+            `Server error: ${error.response.status}`;
+        } else if (error.request) {
+          errorMessage = "Network error - please check your connection";
+        }
+      }
+
       Swal.fire({
         icon: "error",
         title: "Delete Failed!",
-        text: error.response?.data?.message || "Failed to delete product.",
+        text: errorMessage,
         confirmButtonColor: "#3b82f6",
       });
     }
-  };
+  }, []);
 
-  const getCategoryName = (categoryId: string) => {
-    const category = categories.find((c) => c.id.toString() === categoryId);
-    return category?.category_name || "-";
-  };
+  const getCategoryName = useCallback(
+    (categoryId: string) => {
+      const category = categories.find((c) => c.id.toString() === categoryId);
+      return category?.category_name || "-";
+    },
+    [categories],
+  );
 
-  const getUnitName = (unitId: string | number) => {
-    const unit = units.find((u) => u.id.toString() === unitId.toString());
-    return unit?.unit_name || "-";
-  };
+  const getUnitName = useCallback(
+    (unitId: string | number) => {
+      const unit = units.find((u) => u.id.toString() === unitId.toString());
+      return unit?.unit_name || "-";
+    },
+    [units],
+  );
 
-  const getProductTypeLabel = (type: string) => {
+  const getProductTypeLabel = useCallback((type: string) => {
     const types: Record<string, string> = {
       "1": "Kitchen",
       "2": "Juice",
       "3": "Others",
     };
     return types[type] || type || "-";
-  };
+  }, []);
 
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(() => {
     fetchProducts();
     setSearchTerm("");
     setSelectedCategory("");
-  };
+  }, [fetchProducts]);
+
+  const handleClearFilters = useCallback(() => {
+    setSearchTerm("");
+    setSelectedCategory("");
+  }, []);
 
   // Get unique categories for filter
-  const uniqueCategories = Array.from(
-    new Set(products.map((p) => p.category_id)),
-  ).map((id) => ({
-    id,
-    name: getCategoryName(id),
-  }));
+  const uniqueCategories = useMemo(() => {
+    return Array.from(new Set(products.map((p) => p.category_id))).map(
+      (id) => ({
+        id,
+        name: getCategoryName(id),
+      }),
+    );
+  }, [products, getCategoryName]);
+
+  // Stats
+  const stats = useMemo(
+    () => ({
+      totalProducts: products.length,
+      totalCategories: categories.length,
+      totalUnits: units.length,
+      filteredCount: filteredProducts.length,
+    }),
+    [products.length, categories.length, units.length, filteredProducts.length],
+  );
 
   return (
     <>
@@ -198,6 +255,7 @@ export default function ProductList() {
                 <Search
                   className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
                   size={18}
+                  aria-hidden="true"
                 />
                 <input
                   type="text"
@@ -205,12 +263,14 @@ export default function ProductList() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  aria-label="Search products"
                 />
               </div>
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                aria-label="Filter by category"
               >
                 <option value="">All Categories</option>
                 {uniqueCategories.map((cat) => (
@@ -223,20 +283,23 @@ export default function ProductList() {
             <div className="flex gap-2 w-full sm:w-auto">
               <button
                 onClick={handleRefresh}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm"
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={loading}
+                aria-label="Refresh products"
               >
                 <RefreshCw
                   size={16}
                   className={loading ? "animate-spin" : ""}
+                  aria-hidden="true"
                 />
                 Refresh
               </button>
               <button
                 onClick={() => navigate("/products")}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                aria-label="Add new product"
               >
-                <Plus size={16} />
+                <Plus size={16} aria-hidden="true" />
                 Add New
               </button>
             </div>
@@ -312,7 +375,10 @@ export default function ProductList() {
                     <TableRow>
                       <TableCell colSpan={9} className="text-center py-8">
                         <div className="flex items-center justify-center gap-2">
-                          <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                          <Loader2
+                            className="w-5 h-5 animate-spin text-blue-500"
+                            aria-hidden="true"
+                          />
                           <span className="text-gray-500">
                             Loading products...
                           </span>
@@ -323,7 +389,10 @@ export default function ProductList() {
                     <TableRow>
                       <TableCell colSpan={9} className="text-center py-8">
                         <div className="flex flex-col items-center gap-2">
-                          <Package className="w-12 h-12 text-gray-300" />
+                          <Package
+                            className="w-12 h-12 text-gray-300"
+                            aria-hidden="true"
+                          />
                           <p className="text-gray-500">
                             {searchTerm || selectedCategory
                               ? "No products match your filters"
@@ -331,11 +400,8 @@ export default function ProductList() {
                           </p>
                           {(searchTerm || selectedCategory) && (
                             <button
-                              onClick={() => {
-                                setSearchTerm("");
-                                setSelectedCategory("");
-                              }}
-                              className="text-sm text-blue-600 hover:text-blue-700"
+                              onClick={handleClearFilters}
+                              className="text-sm text-blue-600 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1"
                             >
                               Clear filters
                             </button>
@@ -343,9 +409,9 @@ export default function ProductList() {
                           {!searchTerm && !selectedCategory && (
                             <button
                               onClick={() => navigate("/products")}
-                              className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                              className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1"
                             >
-                              <Plus size={14} />
+                              <Plus size={14} aria-hidden="true" />
                               Add your first product
                             </button>
                           )}
@@ -397,27 +463,30 @@ export default function ProductList() {
                         <TableCell className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center gap-1">
                             <button
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
                               onClick={() => handleView(product.id)}
                               title="View Product"
+                              aria-label={`View ${product.product_name}`}
                             >
-                              <Eye size={18} />
+                              <Eye size={18} aria-hidden="true" />
                             </button>
                             <button
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
                               onClick={() => handleEdit(product.id)}
                               title="Edit Product"
+                              aria-label={`Edit ${product.product_name}`}
                             >
-                              <Edit size={18} />
+                              <Edit size={18} aria-hidden="true" />
                             </button>
                             <button
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
                               onClick={() =>
                                 handleDelete(product.id, product.product_name)
                               }
                               title="Delete Product"
+                              aria-label={`Delete ${product.product_name}`}
                             >
-                              <Trash2 size={18} />
+                              <Trash2 size={18} aria-hidden="true" />
                             </button>
                           </div>
                         </TableCell>
@@ -433,14 +502,14 @@ export default function ProductList() {
           {filteredProducts.length > 0 && (
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-sm text-gray-500 mt-4">
               <span>
-                Showing {filteredProducts.length} of {products.length} products
+                Showing {stats.filteredCount} of {stats.totalProducts} products
               </span>
               <div className="flex flex-wrap gap-4">
                 <span>
-                  Categories: <strong>{categories.length}</strong>
+                  Categories: <strong>{stats.totalCategories}</strong>
                 </span>
                 <span>
-                  Units: <strong>{units.length}</strong>
+                  Units: <strong>{stats.totalUnits}</strong>
                 </span>
               </div>
             </div>

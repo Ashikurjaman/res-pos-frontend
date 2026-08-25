@@ -1,5 +1,5 @@
 import axios from "axios";
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import Swal from "sweetalert2";
 import {
   Printer,
@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import PrintInvoice from "../../pages/Sale/PrintInvoice";
 import KitchenPrint from "../../pages/Sale/KitchenPrint";
+import { API_CONFIG } from "../../config/api";
 
 interface CartItem {
   id: number;
@@ -53,48 +54,65 @@ export default function InvoiceDetails({
   onPrintBill,
   currentSaleId,
 }: InvoiceDetailsProps) {
-  const [discount, setDiscount] = useState(0);
-  const [vat, setVat] = useState(0);
-  const [sd, setSd] = useState(0);
-  const [paymentMode, setPaymentMode] = useState("Cash");
-  const [received, setReceived] = useState(0);
-  const [showModal, setShowModal] = useState(false);
-  const [invoice, setInvoice] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showPrintModal, setShowPrintModal] = useState(false);
-  const [showKitchenPrintModal, setShowKitchenPrintModal] = useState(false);
+  const [discount, setDiscount] = useState<number>(0);
+  const [vat, setVat] = useState<number>(0);
+  const [sd, setSd] = useState<number>(0);
+  const [paymentMode, setPaymentMode] = useState<string>("Cash");
+  const [received, setReceived] = useState<number>(0);
+  const [showModal, setShowModal] = useState<boolean>(false);
+  const [invoice, setInvoice] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
+  const [showKitchenPrintModal, setShowKitchenPrintModal] =
+    useState<boolean>(false);
 
-  const subTotal = cart.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0,
+  // Memoized calculations
+  const subTotal = useMemo(
+    () => cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
+    [cart],
   );
-  const discountAmount = (subTotal * discount) / 100;
-  const vatAmount = (subTotal * vat) / 100;
-  const sdAmount = (subTotal * sd) / 100;
 
-  const total = subTotal - discountAmount + vatAmount + sdAmount;
+  const discountAmount = useMemo(
+    () => (subTotal * discount) / 100,
+    [subTotal, discount],
+  );
+  const vatAmount = useMemo(() => (subTotal * vat) / 100, [subTotal, vat]);
+  const sdAmount = useMemo(() => (subTotal * sd) / 100, [subTotal, sd]);
 
-  const formatCurrency = (amount: number) =>
-    amount.toLocaleString("en-BD", {
-      style: "currency",
-      currency: "BDT",
-    });
+  const total = useMemo(
+    () => subTotal - discountAmount + vatAmount + sdAmount,
+    [subTotal, discountAmount, vatAmount, sdAmount],
+  );
+
+  const change = useMemo(
+    () => Math.max(received - total, 0),
+    [received, total],
+  );
+
+  const formatCurrency = useCallback(
+    (amount: number) =>
+      amount.toLocaleString("en-BD", {
+        style: "currency",
+        currency: "BDT",
+      }),
+    [],
+  );
 
   const cashOptions = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
 
-  const handleCashClick = (value: number) => {
+  const handleCashClick = useCallback((value: number) => {
     setReceived((prev) => prev + value);
-  };
+  }, []);
 
-  const handleConfirm = () => {
+  const handleConfirm = useCallback(() => {
     setShowModal(false);
-  };
+  }, []);
 
   const today = new Date().toLocaleDateString("en-CA", {
     timeZone: "Asia/Dhaka",
   });
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (!selectedTable) {
       Swal.fire({
         icon: "warning",
@@ -128,8 +146,9 @@ export default function InvoiceDetails({
     setIsSubmitting(true);
 
     try {
+      // Create sale
       const response = await axios.post(
-        "http://localhost:8000/api/create-sale",
+        `${API_CONFIG.baseURL}/api/create-sale`,
         {
           entryDate: today,
           total,
@@ -160,14 +179,15 @@ export default function InvoiceDetails({
         setSaleStatus("completed");
       }
 
+      // Update table status
       await axios.put(
-        `http://localhost:8000/api/tables/${selectedTable.id}/status`,
+        `${API_CONFIG.baseURL}/api/tables/${selectedTable.id}/status`,
         {
           status: "available",
         },
       );
 
-      // Show print modal instead of auto-print
+      // Show print modal
       setShowPrintModal(true);
 
       // Reset form
@@ -192,22 +212,48 @@ export default function InvoiceDetails({
       }
     } catch (error: any) {
       console.error("Error submitting invoice:", error);
+
+      let errorMessage = "Error saving invoice!";
+      if (error.response) {
+        errorMessage =
+          error.response.data?.message ||
+          error.response.statusText ||
+          `Server error: ${error.response.status}`;
+      } else if (error.request) {
+        errorMessage = "Network error - please check your connection";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
       Swal.fire({
         icon: "error",
         title: "Save Failed!",
-        text: error.response?.data?.message || "Error saving invoice!",
+        text: errorMessage,
         confirmButtonColor: "#3b82f6",
       });
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [
+    selectedTable,
+    received,
+    total,
+    cart,
+    today,
+    discount,
+    vat,
+    sd,
+    paymentMode,
+    setSaleStatus,
+    onClearCart,
+    setCart,
+  ]);
 
-  const handlePrint = () => {
+  const handlePrint = useCallback(() => {
     setShowPrintModal(true);
-  };
+  }, []);
 
-  const handleKitchenPrint = () => {
+  const handleKitchenPrint = useCallback(() => {
     if (cart.length === 0) {
       Swal.fire({
         icon: "warning",
@@ -218,9 +264,9 @@ export default function InvoiceDetails({
       return;
     }
     setShowKitchenPrintModal(true);
-  };
+  }, [cart.length]);
 
-  const handleClear = () => {
+  const handleClear = useCallback(() => {
     if (cart.length === 0) return;
 
     Swal.fire({
@@ -252,20 +298,33 @@ export default function InvoiceDetails({
         });
       }
     });
-  };
+  }, [cart.length, onClearCart, setCart]);
 
-  const getPaymentIcon = (mode: string) => {
+  const getPaymentIcon = useCallback((mode: string) => {
     switch (mode) {
       case "Cash":
-        return <Wallet size={16} className="text-green-600" />;
+        return (
+          <Wallet size={16} className="text-green-600" aria-hidden="true" />
+        );
       case "Card":
-        return <CreditCard size={16} className="text-blue-600" />;
+        return (
+          <CreditCard size={16} className="text-blue-600" aria-hidden="true" />
+        );
       case "Mobile":
-        return <Smartphone size={16} className="text-purple-600" />;
+        return (
+          <Smartphone
+            size={16}
+            className="text-purple-600"
+            aria-hidden="true"
+          />
+        );
       default:
         return null;
     }
-  };
+  }, []);
+
+  const isDisabled = saleStatus === "completed" || isSubmitting;
+  const cartEmpty = cart.length === 0;
 
   return (
     <div className="p-4 border-l border-gray-300 dark:border-gray-700 h-full flex flex-col gap-4">
@@ -327,7 +386,7 @@ export default function InvoiceDetails({
           className="w-full border rounded px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
           min="0"
           max="100"
-          disabled={saleStatus === "completed" || isSubmitting}
+          disabled={isDisabled}
         />
         <span className="text-right text-red-600">
           - {discountAmount.toFixed(2)}
@@ -344,7 +403,7 @@ export default function InvoiceDetails({
           className="w-full border rounded px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
           min="0"
           max="100"
-          disabled={saleStatus === "completed" || isSubmitting}
+          disabled={isDisabled}
         />
         <span className="text-right text-blue-600">
           + {vatAmount.toFixed(2)}
@@ -361,7 +420,7 @@ export default function InvoiceDetails({
           className="w-full border rounded px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
           min="0"
           max="100"
-          disabled={saleStatus === "completed" || isSubmitting}
+          disabled={isDisabled}
         />
         <span className="text-right text-purple-600">
           + {sdAmount.toFixed(2)}
@@ -387,7 +446,7 @@ export default function InvoiceDetails({
           value={paymentMode}
           onChange={(e) => setPaymentMode(e.target.value)}
           className="col-span-2 border rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          disabled={saleStatus === "completed" || isSubmitting}
+          disabled={isDisabled}
         >
           <option value="Cash">💵 Cash</option>
           <option value="Card">💳 Card</option>
@@ -403,8 +462,8 @@ export default function InvoiceDetails({
         </span>
         <button
           onClick={() => setShowModal(true)}
-          className="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 transition-colors text-sm flex items-center justify-center gap-1"
-          disabled={saleStatus === "completed" || isSubmitting}
+          className="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 transition-colors text-sm flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={isDisabled}
         >
           💰 Enter
         </button>
@@ -414,7 +473,7 @@ export default function InvoiceDetails({
       <div className="grid grid-cols-3 gap-2 items-center bg-green-50 p-2 rounded-lg">
         <span className="col-span-2 font-medium text-green-700">Change:</span>
         <span className="text-right font-semibold text-green-700">
-          {formatCurrency(Math.max(received - total, 0))}
+          {formatCurrency(change)}
         </span>
       </div>
 
@@ -422,57 +481,59 @@ export default function InvoiceDetails({
       <div className="grid grid-cols-2 gap-2 mt-4">
         <button
           onClick={handleSubmit}
-          className={`flex-1 text-white px-4 py-2 rounded-lg transition-colors font-medium flex items-center justify-center gap-2 ${
-            cart.length === 0 || saleStatus === "completed" || isSubmitting
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-green-600 hover:bg-green-700"
-          }`}
-          disabled={
-            cart.length === 0 || saleStatus === "completed" || isSubmitting
-          }
+          className={`flex-1 text-white px-4 py-2 rounded-lg transition-colors font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed
+            ${
+              cartEmpty || isDisabled
+                ? "bg-gray-400"
+                : "bg-green-600 hover:bg-green-700"
+            }`}
+          disabled={cartEmpty || isDisabled}
         >
           {isSubmitting ? (
             <>
-              <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+              <span
+                className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"
+                aria-hidden="true"
+              ></span>
               Processing...
             </>
           ) : saleStatus === "completed" ? (
             <>
-              <Check size={16} />
+              <Check size={16} aria-hidden="true" />
               Completed
             </>
           ) : (
             <>
-              <Check size={16} />
+              <Check size={16} aria-hidden="true" />
               Submit
             </>
           )}
         </button>
         <button
           onClick={handleClear}
-          className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors font-medium flex items-center justify-center gap-2"
-          disabled={cart.length === 0 || isSubmitting}
+          className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={cartEmpty || isSubmitting}
         >
-          <Trash2 size={16} />
+          <Trash2 size={16} aria-hidden="true" />
           Clear
         </button>
       </div>
 
-      {/* Print Buttons (when items in cart) */}
+      {/* Print Buttons */}
       {cart.length > 0 && saleStatus !== "completed" && (
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={handleKitchenPrint}
             className="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors font-medium flex items-center justify-center gap-2"
           >
-            <Utensils size={16} />
+            <Utensils size={16} aria-hidden="true" />
             Kitchen Print
           </button>
           <button
             onClick={() => setShowPrintModal(true)}
             className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors font-medium flex items-center justify-center gap-2"
           >
-            <Printer size={16} />
+            <Printer size={16} aria-hidden="true" />
             Preview Bill
           </button>
         </div>
@@ -485,14 +546,14 @@ export default function InvoiceDetails({
             onClick={handleKitchenPrint}
             className="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors font-medium flex items-center justify-center gap-2"
           >
-            <Utensils size={16} />
+            <Utensils size={16} aria-hidden="true" />
             Kitchen Print
           </button>
           <button
             onClick={() => setShowPrintModal(true)}
             className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors font-medium flex items-center justify-center gap-2"
           >
-            <Printer size={16} />
+            <Printer size={16} aria-hidden="true" />
             Print Invoice
           </button>
         </div>
@@ -500,13 +561,21 @@ export default function InvoiceDetails({
 
       {/* Cash Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cash-modal-title"
+        >
           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Select Cash Amount</h3>
+              <h3 id="cash-modal-title" className="text-lg font-semibold">
+                Select Cash Amount
+              </h3>
               <button
                 onClick={() => setShowModal(false)}
-                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                aria-label="Close modal"
               >
                 <X size={20} />
               </button>
@@ -516,7 +585,7 @@ export default function InvoiceDetails({
                 <button
                   key={value}
                   onClick={() => handleCashClick(value)}
-                  className="bg-green-500 text-white py-3 rounded-lg hover:bg-green-600 transition-colors font-medium text-lg"
+                  className="bg-green-500 text-white py-3 rounded-lg hover:bg-green-600 transition-colors font-medium text-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
                 >
                   ৳{value}
                 </button>
@@ -533,13 +602,13 @@ export default function InvoiceDetails({
                 <div className="flex gap-2">
                   <button
                     onClick={() => setReceived(0)}
-                    className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors"
+                    className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
                   >
                     Clear
                   </button>
                   <button
                     onClick={handleConfirm}
-                    className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+                    className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                   >
                     OK
                   </button>
@@ -572,7 +641,7 @@ export default function InvoiceDetails({
           vat={vatAmount}
           sd={sdAmount}
           received={received}
-          change={received - total}
+          change={change}
           paymentMode={paymentMode}
           onClose={() => setShowPrintModal(false)}
         />

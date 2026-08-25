@@ -1,5 +1,5 @@
 import axios from "axios";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Modal } from "../../components/ui/modal";
 import {
   X,
@@ -10,6 +10,7 @@ import {
   Grid,
   List,
 } from "lucide-react";
+import { API_CONFIG } from "../../config/api";
 
 interface Category {
   id: number;
@@ -40,138 +41,182 @@ interface CategoryShowProps {
 
 export default function CategoryShow({ onAddToCart }: CategoryShowProps) {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState<boolean>(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(
     null,
   );
-  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [loadingProducts, setLoadingProducts] = useState<boolean>(false);
   const [productError, setProductError] = useState<string | null>(null);
 
   // Track quantity by product id
   const [quantities, setQuantities] = useState<{ [key: number]: number }>({});
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
+  // Fetch categories on mount
   useEffect(() => {
     fetchCategories();
   }, []);
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get("http://localhost:8000/api/category");
+      const response = await axios.get(`${API_CONFIG.baseURL}/api/category`);
       setCategories(response.data.data);
     } catch (error) {
       console.error("Error fetching categories:", error);
-      setError("Failed to load categories. Please try again.");
+
+      let errorMessage = "Failed to load categories. Please try again.";
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          errorMessage =
+            error.response.data?.message ||
+            error.response.statusText ||
+            `Server error: ${error.response.status}`;
+        } else if (error.request) {
+          errorMessage = "Network error - please check your connection";
+        }
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleCategoryClick = (categoryId: number, categoryName: string) => {
-    setSelectedCategory(categoryName);
-    setSelectedCategoryId(categoryId);
-    setIsOpen(true);
-    setLoadingProducts(true);
-    setProductError(null);
+  const handleCategoryClick = useCallback(
+    (categoryId: number, categoryName: string) => {
+      setSelectedCategory(categoryName);
+      setSelectedCategoryId(categoryId);
+      setIsOpen(true);
+      setLoadingProducts(true);
+      setProductError(null);
 
-    axios
-      .get(`http://localhost:8000/api/products-load?category_id=${categoryId}`)
-      .then((response) => {
-        console.log("Products response:", response.data);
+      axios
+        .get(
+          `${API_CONFIG.baseURL}/api/products-load?category_id=${categoryId}`,
+        )
+        .then((response) => {
+          // Ensure products is an array
+          let productsData = response.data;
+          if (!Array.isArray(productsData)) {
+            productsData = [];
+          }
 
-        // ✅ Ensure products is an array
-        let productsData = response.data;
-        if (!Array.isArray(productsData)) {
-          productsData = [];
-        }
+          // Ensure price and stock are numbers
+          productsData = productsData.map((p: any) => ({
+            ...p,
+            price: parseFloat(p.price) || 0,
+            stock: parseInt(p.stock) || 0,
+            vat: parseFloat(p.vat) || 0,
+            sd: parseFloat(p.sd) || 0,
+          }));
 
-        // ✅ Ensure price is a number
-        productsData = productsData.map((p: any) => ({
-          ...p,
-          price: parseFloat(p.price) || 0,
-          stock: parseInt(p.stock) || 0,
-          vat: parseFloat(p.vat) || 0,
-          sd: parseFloat(p.sd) || 0,
-        }));
+          setProducts(productsData);
 
-        setProducts(productsData);
+          // Initialize quantities to 1 for new products
+          const initialQuantities: { [key: number]: number } = {};
+          productsData.forEach((p: Product) => {
+            initialQuantities[p.id] = 1;
+          });
+          setQuantities(initialQuantities);
 
-        // Initialize quantities to 1 for new products
-        const initialQuantities: { [key: number]: number } = {};
-        productsData.forEach((p: Product) => {
-          initialQuantities[p.id] = 1;
+          setLoadingProducts(false);
+        })
+        .catch((error) => {
+          console.error("Error fetching products:", error);
+
+          let errorMessage = "Failed to load products. Please try again.";
+          if (axios.isAxiosError(error)) {
+            if (error.response) {
+              errorMessage =
+                error.response.data?.message ||
+                error.response.statusText ||
+                `Server error: ${error.response.status}`;
+            } else if (error.request) {
+              errorMessage = "Network error - please check your connection";
+            }
+          }
+          setProductError(errorMessage);
+          setProducts([]);
+          setLoadingProducts(false);
         });
-        setQuantities(initialQuantities);
+    },
+    [],
+  );
 
-        setLoadingProducts(false);
-      })
-      .catch((error) => {
-        console.error("Error fetching products:", error);
-        setProductError("Failed to load products. Please try again.");
-        setProducts([]);
-        setLoadingProducts(false);
+  const handleQuantityChange = useCallback(
+    (productId: number, delta: number) => {
+      setQuantities((prev) => ({
+        ...prev,
+        [productId]: Math.max(1, (prev[productId] || 1) + delta),
+      }));
+    },
+    [],
+  );
+
+  const handleAddToCart = useCallback(
+    (product: Product) => {
+      const quantity = quantities[product.id] || 1;
+
+      if (quantity > product.stock) {
+        alert(`Only ${product.stock} items available in stock!`);
+        return;
+      }
+
+      onAddToCart({
+        id: product.id,
+        product_name: product.product_name,
+        price: product.price,
+        quantity: quantity,
+        stock: product.stock,
+        category: selectedCategoryId || 0,
+        vat: product.vat || 0,
+        sd: product.sd || 0,
       });
-  };
 
-  const handleQuantityChange = (productId: number, delta: number) => {
-    setQuantities((prev) => ({
-      ...prev,
-      [productId]: Math.max(1, (prev[productId] || 1) + delta),
-    }));
-  };
+      // Reset quantity to 1 after adding to cart
+      setQuantities((prev) => ({
+        ...prev,
+        [product.id]: 1,
+      }));
+    },
+    [quantities, onAddToCart, selectedCategoryId],
+  );
 
-  const handleAddToCart = (product: Product) => {
-    const quantity = quantities[product.id] || 1;
-
-    if (quantity > product.stock) {
-      alert(`Only ${product.stock} items available in stock!`);
-      return;
-    }
-
-    onAddToCart({
-      id: product.id,
-      product_name: product.product_name,
-      price: product.price,
-      quantity: quantity,
-      stock: product.stock,
-      category: selectedCategoryId || 0,
-      vat: product.vat || 0,
-      sd: product.sd || 0,
-    });
-
-    // Reset quantity to 1 after adding to cart
-    setQuantities((prev) => ({
-      ...prev,
-      [product.id]: 1,
-    }));
-  };
-
-  const getStockStatus = (stock: number) => {
+  const getStockStatus = useCallback((stock: number) => {
     if (stock <= 0)
       return { label: "Out of Stock", color: "text-red-600 bg-red-50" };
     if (stock <= 5)
       return { label: "Low Stock", color: "text-yellow-600 bg-yellow-50" };
     return { label: "In Stock", color: "text-green-600 bg-green-50" };
-  };
+  }, []);
 
+  const availableProductsCount = useMemo(
+    () => products.filter((p) => p.stock > 0).length,
+    [products],
+  );
+
+  // Loading state
   if (loading) {
     return (
       <div className="p-4 flex items-center justify-center h-64">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+          <Loader2
+            className="w-8 h-8 animate-spin text-blue-500"
+            aria-hidden="true"
+          />
           <p className="text-gray-500 text-sm">Loading categories...</p>
         </div>
       </div>
     );
   }
 
+  // Error state
   if (error) {
     return (
       <div className="p-4">
@@ -179,7 +224,7 @@ export default function CategoryShow({ onAddToCart }: CategoryShowProps) {
           <p className="text-red-600 text-sm">{error}</p>
           <button
             onClick={fetchCategories}
-            className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+            className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           >
             Retry
           </button>
@@ -205,12 +250,15 @@ export default function CategoryShow({ onAddToCart }: CategoryShowProps) {
             onClick={() =>
               handleCategoryClick(category.id, category.category_name)
             }
-            className="group relative bg-gradient-to-br from-blue-500 to-blue-600 text-white py-3 px-2 rounded-xl shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200 text-center"
+            className="group relative bg-gradient-to-br from-blue-500 to-blue-600 text-white py-3 px-2 rounded-xl shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200 text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           >
             <span className="text-sm font-medium">
               {category.category_name}
             </span>
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div
+              className="absolute -top-1 -right-1 w-2 h-2 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+              aria-hidden="true"
+            ></div>
           </button>
         ))}
       </div>
@@ -237,30 +285,33 @@ export default function CategoryShow({ onAddToCart }: CategoryShowProps) {
               <div className="flex border border-gray-200 rounded-lg overflow-hidden">
                 <button
                   onClick={() => setViewMode("grid")}
-                  className={`p-1.5 transition-colors ${
+                  className={`p-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     viewMode === "grid"
                       ? "bg-blue-500 text-white"
                       : "bg-white text-gray-500 hover:bg-gray-50"
                   }`}
+                  aria-label="Grid view"
                 >
-                  <Grid size={16} />
+                  <Grid size={16} aria-hidden="true" />
                 </button>
                 <button
                   onClick={() => setViewMode("list")}
-                  className={`p-1.5 transition-colors ${
+                  className={`p-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     viewMode === "list"
                       ? "bg-blue-500 text-white"
                       : "bg-white text-gray-500 hover:bg-gray-50"
                   }`}
+                  aria-label="List view"
                 >
-                  <List size={16} />
+                  <List size={16} aria-hidden="true" />
                 </button>
               </div>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                aria-label="Close modal"
               >
-                <X size={20} />
+                <X size={20} aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -268,8 +319,15 @@ export default function CategoryShow({ onAddToCart }: CategoryShowProps) {
           {/* Products Content */}
           <div className="flex-1 overflow-y-auto py-4">
             {loadingProducts ? (
-              <div className="flex flex-col items-center justify-center h-40 gap-3">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+              <div
+                className="flex flex-col items-center justify-center h-40 gap-3"
+                role="status"
+                aria-label="Loading products"
+              >
+                <Loader2
+                  className="w-8 h-8 animate-spin text-blue-500"
+                  aria-hidden="true"
+                />
                 <p className="text-gray-500 text-sm">Loading products...</p>
               </div>
             ) : productError ? (
@@ -283,14 +341,17 @@ export default function CategoryShow({ onAddToCart }: CategoryShowProps) {
                       selectedCategory || "",
                     )
                   }
-                  className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                  className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                 >
                   Retry
                 </button>
               </div>
             ) : products.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-40 gap-2">
-                <ShoppingCart className="w-12 h-12 text-gray-300" />
+                <ShoppingCart
+                  className="w-12 h-12 text-gray-300"
+                  aria-hidden="true"
+                />
                 <p className="text-gray-500">
                   No products found in this category
                 </p>
@@ -326,8 +387,7 @@ export default function CategoryShow({ onAddToCart }: CategoryShowProps) {
                         </h4>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
                           <span className="text-lg font-bold text-blue-600">
-                            ৳{product.price.toFixed(2)}{" "}
-                            {/* ✅ Now price is a number */}
+                            ৳{product.price.toFixed(2)}
                           </span>
                           <span
                             className={`text-xs px-2 py-0.5 rounded-full ${stockStatus.color}`}
@@ -352,8 +412,9 @@ export default function CategoryShow({ onAddToCart }: CategoryShowProps) {
                               onClick={() =>
                                 handleQuantityChange(product.id, -1)
                               }
-                              className="p-1.5 hover:bg-gray-100 transition-colors"
+                              className="p-1.5 hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
                               disabled={quantity <= 1}
+                              aria-label="Decrease quantity"
                             >
                               <Minus
                                 size={14}
@@ -362,6 +423,7 @@ export default function CategoryShow({ onAddToCart }: CategoryShowProps) {
                                     ? "text-gray-300"
                                     : "text-gray-600"
                                 }
+                                aria-hidden="true"
                               />
                             </button>
                             <span className="w-8 text-center text-sm font-medium">
@@ -371,8 +433,9 @@ export default function CategoryShow({ onAddToCart }: CategoryShowProps) {
                               onClick={() =>
                                 handleQuantityChange(product.id, 1)
                               }
-                              className="p-1.5 hover:bg-gray-100 transition-colors"
+                              className="p-1.5 hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
                               disabled={quantity >= product.stock}
+                              aria-label="Increase quantity"
                             >
                               <Plus
                                 size={14}
@@ -381,14 +444,15 @@ export default function CategoryShow({ onAddToCart }: CategoryShowProps) {
                                     ? "text-gray-300"
                                     : "text-gray-600"
                                 }
+                                aria-hidden="true"
                               />
                             </button>
                           </div>
                           <button
                             onClick={() => handleAddToCart(product)}
-                            className="bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-1"
+                            className="bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                           >
-                            <ShoppingCart size={14} />
+                            <ShoppingCart size={14} aria-hidden="true" />
                             Add
                           </button>
                         </div>
@@ -403,11 +467,11 @@ export default function CategoryShow({ onAddToCart }: CategoryShowProps) {
           {/* Modal Footer */}
           <div className="pt-4 border-t border-gray-200 flex justify-between items-center">
             <span className="text-sm text-gray-500">
-              {products.filter((p) => p.stock > 0).length} products available
+              {availableProductsCount} products available
             </span>
             <button
               onClick={() => setIsOpen(false)}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium"
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
             >
               Close
             </button>
