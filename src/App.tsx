@@ -1,4 +1,9 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
 import NotFound from "./pages/OtherPage/NotFound";
@@ -27,78 +32,76 @@ import CategoryEdit from "./pages/Category/CategoryEdit";
 import Unit from "./pages/Unit/Unit";
 import UnitList from "./pages/Unit/UnitList";
 import UnitEdit from "./pages/Unit/UnitEdit";
-import CreateSale from "./pages/Sale/CreateSale";
 import SaleList from "./pages/Sale/SaleList";
-import TableManagement from "./pages/Table/TableManagement"; // 👈 Import Table Management
+import TableManagement from "./pages/Table/TableManagement";
 import SalePageWrapper from "./pages/Sale/SalePageWrapper";
 import StockManagement from "./pages/Products/StockManagement";
+import ProtectedRoute from "./components/ProtectedRoute"; // 👈 Import ProtectedRoute
+import { AuthProvider } from "./hooks/useAuth"; // 👈 Import AuthProvider
 
 export default function App() {
   return (
-    <>
+    <AuthProvider>
+      {" "}
+      {/* 👈 Wrap with AuthProvider */}
       <Router>
         <ScrollToTop />
         <Routes>
-          {/* Dashboard Layout */}
-          <Route element={<AppLayout />}>
-            <Route index path="/" element={<Home />} />
-
-            {/* Sale Routes */}
-            {/* <Route path="/sale" element={<CreateSale />} /> */}
-            <Route path="/sale" element={<SalePageWrapper />} />
-            <Route path="/sale-list" element={<SaleList />} />
-
-            {/* Product Routes */}
-            <Route path="/products" element={<Product />} />
-            <Route path="/products-list" element={<ProductList />} />
-            <Route path="/products-edit/:id" element={<ProductEdit />} />
-            <Route path="/stock-management" element={<StockManagement />} />
-
-            {/* Category Routes */}
-            <Route path="/category" element={<Category />} />
-            <Route path="/category-list" element={<CategoryList />} />
-            <Route path="/category-edit/:id" element={<CategoryEdit />} />
-
-            {/* Unit Routes */}
-            <Route path="/unit" element={<Unit />} />
-            <Route path="/unit-list" element={<UnitList />} />
-            <Route path="/unit-edit/:id" element={<UnitEdit />} />
-
-            {/* Table Routes 👈 Add this */}
-            <Route path="/tables" element={<TableManagement />} />
-
-            {/* Other Routes */}
-            <Route path="/profile" element={<UserProfiles />} />
-            <Route path="/calendar" element={<Calendar />} />
-            <Route path="/blank" element={<Blank />} />
-
-            {/* Forms */}
-            <Route path="/form-elements" element={<FormElements />} />
-
-            {/* Tables */}
-            <Route path="/basic-tables" element={<BasicTables />} />
-
-            {/* Ui Elements */}
-            <Route path="/alerts" element={<Alerts />} />
-            <Route path="/avatars" element={<Avatars />} />
-            <Route path="/badge" element={<Badges />} />
-            <Route path="/buttons" element={<Buttons />} />
-            <Route path="/images" element={<Images />} />
-            <Route path="/videos" element={<Videos />} />
-
-            {/* Charts */}
-            <Route path="/line-chart" element={<LineChart />} />
-            <Route path="/bar-chart" element={<BarChart />} />
-          </Route>
-
-          {/* Auth Layout */}
+          {/* Public Routes - No authentication needed */}
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
+
+          {/* Redirect root to signin */}
+          <Route path="/" element={<Navigate to="/signin" replace />} />
+
+          {/* Protected Routes - Need authentication */}
+          <Route element={<ProtectedRoute />}>
+            <Route element={<AppLayout />}>
+              <Route path="/dashboard" element={<Home />} />{" "}
+              {/* 👈 Changed from "/" to "/dashboard" */}
+              {/* Sale Routes */}
+              <Route path="/sale" element={<SalePageWrapper />} />
+              <Route path="/sale-list" element={<SaleList />} />
+              {/* Product Routes */}
+              <Route path="/products" element={<Product />} />
+              <Route path="/products-list" element={<ProductList />} />
+              <Route path="/products-edit/:id" element={<ProductEdit />} />
+              <Route path="/stock-management" element={<StockManagement />} />
+              {/* Category Routes */}
+              <Route path="/category" element={<Category />} />
+              <Route path="/category-list" element={<CategoryList />} />
+              <Route path="/category-edit/:id" element={<CategoryEdit />} />
+              {/* Unit Routes */}
+              <Route path="/unit" element={<Unit />} />
+              <Route path="/unit-list" element={<UnitList />} />
+              <Route path="/unit-edit/:id" element={<UnitEdit />} />
+              {/* Table Routes */}
+              <Route path="/tables" element={<TableManagement />} />
+              {/* Other Routes */}
+              <Route path="/profile" element={<UserProfiles />} />
+              <Route path="/calendar" element={<Calendar />} />
+              <Route path="/blank" element={<Blank />} />
+              {/* Forms */}
+              <Route path="/form-elements" element={<FormElements />} />
+              {/* Tables */}
+              <Route path="/basic-tables" element={<BasicTables />} />
+              {/* Ui Elements */}
+              <Route path="/alerts" element={<Alerts />} />
+              <Route path="/avatars" element={<Avatars />} />
+              <Route path="/badge" element={<Badges />} />
+              <Route path="/buttons" element={<Buttons />} />
+              <Route path="/images" element={<Images />} />
+              <Route path="/videos" element={<Videos />} />
+              {/* Charts */}
+              <Route path="/line-chart" element={<LineChart />} />
+              <Route path="/bar-chart" element={<BarChart />} />
+            </Route>
+          </Route>
 
           {/* Fallback Route */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Router>
-    </>
+    </AuthProvider>
   );
 }

@@ -1,7 +1,16 @@
 import axios from "axios";
 import { useState } from "react";
 import Swal from "sweetalert2";
-import { Printer, Trash2, X, Check, CreditCard, Wallet, Smartphone, Utensils } from "lucide-react";
+import {
+  Printer,
+  Trash2,
+  X,
+  Check,
+  CreditCard,
+  Wallet,
+  Smartphone,
+  Utensils,
+} from "lucide-react";
 import PrintInvoice from "../../pages/Sale/PrintInvoice";
 import KitchenPrint from "../../pages/Sale/KitchenPrint";
 
@@ -213,7 +222,7 @@ export default function InvoiceDetails({
 
   const handleClear = () => {
     if (cart.length === 0) return;
-    
+
     Swal.fire({
       title: "Clear Cart?",
       text: "This will remove all items from the cart.",
@@ -274,7 +283,9 @@ export default function InvoiceDetails({
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 rounded-lg border border-blue-200">
           <div className="flex justify-between items-center">
             <span className="font-medium text-gray-700">Table:</span>
-            <span className="font-bold text-blue-700">{selectedTable.table_name}</span>
+            <span className="font-bold text-blue-700">
+              {selectedTable.table_name}
+            </span>
           </div>
           <div className="flex justify-between items-center mt-1">
             <span className="font-medium text-gray-700">Status:</span>
@@ -285,8 +296,8 @@ export default function InvoiceDetails({
                   : saleStatus === "printed"
                     ? "bg-yellow-100 text-yellow-700"
                     : saleStatus === "completed"
-                    ? "bg-gray-100 text-gray-700"
-                    : "bg-gray-100 text-gray-700"
+                      ? "bg-gray-100 text-gray-700"
+                      : "bg-gray-100 text-gray-700"
               }`}
             >
               {saleStatus?.toUpperCase() || "ACTIVE"}
@@ -416,7 +427,9 @@ export default function InvoiceDetails({
               ? "bg-gray-400 cursor-not-allowed"
               : "bg-green-600 hover:bg-green-700"
           }`}
-          disabled={cart.length === 0 || saleStatus === "completed" || isSubmitting}
+          disabled={
+            cart.length === 0 || saleStatus === "completed" || isSubmitting
+          }
         >
           {isSubmitting ? (
             <>

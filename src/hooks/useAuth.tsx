@@ -6,7 +6,7 @@ import {
   useEffect,
   ReactNode,
 } from "react";
-import api from "../../config/api";
+import api from "../services/api";
 
 interface User {
   id: string;
@@ -26,13 +26,7 @@ interface AuthContextType {
     rememberMe: boolean;
   }) => Promise<void>;
   signOut: () => Promise<void>;
-  signUp: (data: {
-    username: string;
-    email: string;
-    password: string;
-    firstName: string;
-    lastName: string;
-  }) => Promise<void>;
+  signUp: (data: any) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -68,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // ✅ আপডেটেড signIn ফাংশন - Username বা Email দুটোই নিবে
   const signIn = async ({
     usernameOrEmail,
     password,
@@ -78,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     rememberMe: boolean;
   }) => {
     try {
+      // API তে usernameOrEmail পাঠানো হচ্ছে
       const response = await api.post("/auth/signin", {
         usernameOrEmail,
         password,
@@ -111,13 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp = async (data: {
-    username: string;
-    email: string;
-    password: string;
-    firstName: string;
-    lastName: string;
-  }) => {
+  const signUp = async (data: any) => {
     const response = await api.post("/auth/signup", data);
     return response.data;
   };

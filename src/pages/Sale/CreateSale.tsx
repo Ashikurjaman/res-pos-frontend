@@ -6,7 +6,13 @@ import TableSelector from "./TableSelector";
 import TableSelectionModal from "./TableSelectionModal";
 import Alert from "../../components/ui/alert/Alert";
 import axios from "axios";
-import { RefreshCw, AlertTriangle, CheckCircle, XCircle, Grid3x3 } from "lucide-react";
+import {
+  RefreshCw,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  Grid3x3,
+} from "lucide-react";
 
 interface CartItem {
   id: number;
@@ -30,7 +36,9 @@ interface CreateSaleProps {
   preselectedTable?: Table | null;
 }
 
-export default function CreateSale({ preselectedTable = null }: CreateSaleProps) {
+export default function CreateSale({
+  preselectedTable = null,
+}: CreateSaleProps) {
   const [stockAlert, setStockAlert] = useState({
     show: false,
     message: "",
@@ -113,11 +121,9 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
   const loadCartForTable = (tableId: number) => {
     const cartKey = `cartItems_${tableId}`;
     const editedKey = `editedProducts_${tableId}`;
-    const printedKey = `printedItems_${tableId}`;
     
     const storedCart = localStorage.getItem(cartKey);
     const storedEdited = localStorage.getItem(editedKey);
-    const storedPrinted = localStorage.getItem(printedKey);
     
     setCart(storedCart ? JSON.parse(storedCart) : []);
     setEditedProducts(storedEdited ? JSON.parse(storedEdited) : []);
@@ -129,40 +135,48 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
     0,
   );
 
-  const triggerAlert = (message: string, type: "error" | "success" | "warning" = "error") => {
+  const triggerAlert = (
+    message: string,
+    type: "error" | "success" | "warning" = "error",
+  ) => {
     setStockAlert({ show: true, message, type });
-    setTimeout(() => setStockAlert({ show: false, message: "", type: "error" }), 4000);
+    setTimeout(
+      () => setStockAlert({ show: false, message: "", type: "error" }),
+      4000,
+    );
   };
 
   // Auto-save to database
   useEffect(() => {
-    if (cart.length > 0 && selectedTable && currentSaleId && saleStatus !== "completed") {
+    if (
+      cart.length > 0 &&
+      selectedTable &&
+      currentSaleId &&
+      saleStatus !== "completed"
+    ) {
       autoSaveSale();
     }
   }, [cart, selectedTable, currentSaleId]);
 
   const autoSaveSale = useCallback(async () => {
     if (isSaving) return;
-    
+
     setIsSaving(true);
     try {
-      await axios.put(
-        `http://localhost:8000/api/sales/${currentSaleId}`,
-        {
-          table_id: selectedTable?.id,
-          products: cart.map((item) => ({
-            id: item.id,
-            name: item.product_name,
-            price: item.price,
-            quantity: item.quantity,
-            stock: item.stock,
-            vat: item.vat,
-            sd: item.sd,
-          })),
-          total: totalAmount,
-          status: saleStatus,
-        },
-      );
+      await axios.put(`http://localhost:8000/api/sales/${currentSaleId}`, {
+        table_id: selectedTable?.id,
+        products: cart.map((item) => ({
+          id: item.id,
+          name: item.product_name,
+          price: item.price,
+          quantity: item.quantity,
+          stock: item.stock,
+          vat: item.vat,
+          sd: item.sd,
+        })),
+        total: totalAmount,
+        status: saleStatus,
+      });
       setLastSaved(new Date());
     } catch (error) {
       console.error("Auto-save failed:", error);
@@ -177,7 +191,9 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
     loadCartForTable(table.id);
 
     try {
-      const response = await axios.get(`http://localhost:8000/api/sales/table/${table.id}/active`);
+      const response = await axios.get(
+        `http://localhost:8000/api/sales/table/${table.id}/active`,
+      );
       if (response.data && response.data.data) {
         const existingSale = response.data.data;
         setCurrentSaleId(existingSale.id);
@@ -198,14 +214,21 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
         },
       );
       setCurrentSaleId(response.data.sale_id);
-      localStorage.setItem("currentSaleId", JSON.stringify(response.data.sale_id));
+      localStorage.setItem(
+        "currentSaleId",
+        JSON.stringify(response.data.sale_id),
+      );
 
-      triggerAlert(`Table ${table.table_name} selected successfully!`, "success");
+      triggerAlert(
+        `Table ${table.table_name} selected successfully!`,
+        "success",
+      );
     } catch (error: any) {
       console.error("Failed to initialize sale:", error);
       triggerAlert(
-        error.response?.data?.message || "Failed to initialize sale for this table!",
-        "error"
+        error.response?.data?.message ||
+          "Failed to initialize sale for this table!",
+        "error",
       );
     }
   };
@@ -217,7 +240,10 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
     }
 
     if (saleStatus === "printed" || saleStatus === "completed") {
-      triggerAlert("This bill has been completed! Please start a new sale.", "warning");
+      triggerAlert(
+        "This bill has been completed! Please start a new sale.",
+        "warning",
+      );
       return;
     }
 
@@ -228,12 +254,15 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
 
     if (selectedTable.status === "available" && cart.length === 0) {
       try {
-        await axios.put(`http://localhost:8000/api/tables/${selectedTable.id}/status`, {
-          status: "occupied",
-        });
+        await axios.put(
+          `http://localhost:8000/api/tables/${selectedTable.id}/status`,
+          {
+            status: "occupied",
+          },
+        );
         setSelectedTable({
           ...selectedTable,
-          status: "occupied"
+          status: "occupied",
         });
       } catch (error) {
         console.error("Failed to update table status:", error);
@@ -244,7 +273,10 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
       const existing = prev.find((item) => item.id === product.id);
       if (existing) {
         if (existing.quantity + product.quantity > product.stock) {
-          triggerAlert(`${product.product_name} stock is insufficient!`, "error");
+          triggerAlert(
+            `${product.product_name} stock is insufficient!`,
+            "error",
+          );
           return prev;
         }
         return prev.map((item) =>
@@ -282,16 +314,19 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
 
   const handleClearCart = async () => {
     if (cart.length === 0) return;
-    
+
     if (window.confirm("Are you sure you want to clear the cart?")) {
       if (selectedTable) {
         try {
-          await axios.put(`http://localhost:8000/api/tables/${selectedTable.id}/status`, {
-            status: "available",
-          });
+          await axios.put(
+            `http://localhost:8000/api/tables/${selectedTable.id}/status`,
+            {
+              status: "available",
+            },
+          );
           setSelectedTable({
             ...selectedTable,
-            status: "available"
+            status: "available",
           });
         } catch (error) {
           console.error("Failed to update table status:", error);
@@ -362,8 +397,11 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] sm:w-auto sm:max-w-md md:max-w-lg animate-slideDown">
           <Alert
             title={
-              stockAlert.type === "error" ? "Error" :
-              stockAlert.type === "warning" ? "Warning" : "Success"
+              stockAlert.type === "error"
+                ? "Error"
+                : stockAlert.type === "warning"
+                  ? "Warning"
+                  : "Success"
             }
             variant={stockAlert.type}
             message={stockAlert.message}
@@ -376,12 +414,12 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Create Sale</h1>
             <p className="text-sm text-gray-600 mt-1">
-              {selectedTable 
-                ? `Table: ${selectedTable.table_name} (${selectedTable.table_number})` 
+              {selectedTable
+                ? `Table: ${selectedTable.table_name} (${selectedTable.table_number})`
                 : "Select a table to start"}
             </p>
           </div>
-          
+
           <div className="flex items-center gap-3">
             <button
               onClick={handleViewTables}
@@ -390,7 +428,7 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
               <Grid3x3 size={18} />
               Change Table
             </button>
-            
+
             {lastSaved && (
               <div className="text-xs text-gray-400 flex items-center gap-1">
                 <RefreshCw className="w-3 h-3" />
@@ -410,17 +448,26 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
         )}
 
         {selectedTable && (
-          <div className={`max-w-7xl mx-auto mb-4 p-3 rounded-lg shadow-sm border ${getStatusColor()}`}>
+          <div
+            className={`max-w-7xl mx-auto mb-4 p-3 rounded-lg shadow-sm border ${getStatusColor()}`}
+          >
             <div className="flex flex-wrap justify-between items-center gap-2">
               <div className="flex items-center gap-4 flex-wrap">
                 <span className="font-semibold flex items-center gap-2">
                   <span className="text-gray-600">Table:</span>
-                  <span className="text-gray-900">{selectedTable.table_name}</span>
-                  <span className="text-xs text-gray-500">({selectedTable.table_number})</span>
+                  <span className="text-gray-900">
+                    {selectedTable.table_name}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    ({selectedTable.table_number})
+                  </span>
                 </span>
-                <span className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor()}`}>
+                <span
+                  className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor()}`}
+                >
                   {getStatusIcon()}
-                  Status: {saleStatus.charAt(0).toUpperCase() + saleStatus.slice(1)}
+                  Status:{" "}
+                  {saleStatus.charAt(0).toUpperCase() + saleStatus.slice(1)}
                 </span>
                 {currentSaleId && (
                   <span className="text-xs text-gray-500">
@@ -429,7 +476,7 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
                 )}
                 {cart.length > 0 && (
                   <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                    {cart.length} item{cart.length !== 1 ? 's' : ''}
+                    {cart.length} item{cart.length !== 1 ? "s" : ""}
                   </span>
                 )}
               </div>
