@@ -7,7 +7,7 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { PencilIcon, TrashBinIcon } from "../../icons";
-import { Plus, Minus, ShoppingCart, AlertTriangle } from "lucide-react";
+import { Plus, Minus, ShoppingCart, AlertTriangle, Printer } from "lucide-react";
 import { useState } from "react";
 
 interface CartItem {
@@ -29,6 +29,7 @@ interface Props {
   editedProducts: any;
   totalAmount: any;
   setEditedProducts: any;
+  printedItems?: number[];
 }
 
 export default function AddToCartProduct({
@@ -39,6 +40,7 @@ export default function AddToCartProduct({
   editedProducts,
   totalAmount,
   setEditedProducts,
+  printedItems = [],
 }: Props) {
   const [editingId, setEditingId] = useState<number | null>(null);
 
@@ -65,14 +67,16 @@ export default function AddToCartProduct({
     return { label: "In Stock", color: "text-green-600" };
   };
 
+  const isPrinted = (id: number) => {
+    return printedItems.includes(id);
+  };
+
   if (cart.length === 0) {
     return (
       <ComponentCard title="">
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <ShoppingCart className="w-16 h-16 text-gray-300 mb-4" />
-          <h3 className="text-lg font-medium text-gray-600">
-            Your cart is empty
-          </h3>
+          <h3 className="text-lg font-medium text-gray-600">Your cart is empty</h3>
           <p className="text-sm text-gray-400 mt-1">
             Select a category and add products to get started
           </p>
@@ -88,46 +92,25 @@ export default function AddToCartProduct({
           <Table className="min-w-full">
             <TableHeader>
               <TableRow className="bg-gray-50 dark:bg-gray-800">
-                <TableCell
-                  isHeader
-                  className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
+                <TableCell isHeader className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   SL
                 </TableCell>
-                <TableCell
-                  isHeader
-                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
+                <TableCell isHeader className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Product Name
                 </TableCell>
-                <TableCell
-                  isHeader
-                  className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
+                <TableCell isHeader className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Price
                 </TableCell>
-                <TableCell
-                  isHeader
-                  className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
+                <TableCell isHeader className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Stock
                 </TableCell>
-                <TableCell
-                  isHeader
-                  className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
+                <TableCell isHeader className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Quantity
                 </TableCell>
-                <TableCell
-                  isHeader
-                  className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
+                <TableCell isHeader className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Total
                 </TableCell>
-                <TableCell
-                  isHeader
-                  className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
+                <TableCell isHeader className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Action
                 </TableCell>
               </TableRow>
@@ -139,13 +122,16 @@ export default function AddToCartProduct({
                 const isOutOfStock = product.stock <= 0;
                 const stockStatus = getStockStatus(product.stock);
                 const total = product.quantity * product.price;
+                const printed = isPrinted(product.id);
 
                 return (
                   <TableRow
                     key={product.id}
                     className={`transition-colors ${
-                      isEdited
-                        ? "bg-green-50 hover:bg-green-100"
+                      printed 
+                        ? "bg-red-50 hover:bg-red-100 border-l-4 border-red-500"
+                        : isEdited 
+                        ? "bg-green-50 hover:bg-green-100" 
                         : "hover:bg-gray-50"
                     } ${isOutOfStock ? "opacity-60" : ""}`}
                   >
@@ -154,20 +140,26 @@ export default function AddToCartProduct({
                     </TableCell>
                     <TableCell className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-800">
+                        <span className={`font-medium ${printed ? "text-red-700" : "text-gray-800"}`}>
                           {product.product_name}
                         </span>
-                        {isEdited && (
+                        {printed && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            <Printer size={12} className="mr-1" />
+                            Printed
+                          </span>
+                        )}
+                        {isEdited && !printed && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             Edited
                           </span>
                         )}
-                        {isLowStock && !isOutOfStock && (
+                        {isLowStock && !isOutOfStock && !printed && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                             Low Stock
                           </span>
                         )}
-                        {isOutOfStock && (
+                        {isOutOfStock && !printed && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
                             Out of Stock
                           </span>
@@ -185,88 +177,75 @@ export default function AddToCartProduct({
                     <TableCell className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-1">
                         <button
-                          onClick={() =>
-                            handleQuantityChange(
-                              product.id,
-                              product.quantity - 1,
-                            )
-                          }
+                          onClick={() => handleQuantityChange(product.id, product.quantity - 1)}
                           className="p-1 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          disabled={product.quantity <= 1 || isOutOfStock}
+                          disabled={product.quantity <= 1 || isOutOfStock || printed}
                         >
                           <Minus size={14} />
                         </button>
                         <input
                           type="number"
-                          className="w-14 text-center border border-gray-300 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className={`w-14 text-center border rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            printed ? "bg-red-50 border-red-300" : "border-gray-300"
+                          }`}
                           value={product.quantity}
                           min={0}
                           max={product.stock}
                           onChange={(e) => {
                             const newQty = parseInt(e.target.value) || 0;
                             if (newQty > product.stock) {
-                              alert(
-                                `Only ${product.stock} items available in stock!`,
-                              );
+                              alert(`Only ${product.stock} items available in stock!`);
                               return;
                             }
                             onUpdateQuantity(product.id, newQty);
                           }}
-                          disabled={isOutOfStock}
+                          disabled={isOutOfStock || printed}
                         />
                         <button
-                          onClick={() =>
-                            handleQuantityChange(
-                              product.id,
-                              product.quantity + 1,
-                            )
-                          }
+                          onClick={() => handleQuantityChange(product.id, product.quantity + 1)}
                           className="p-1 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          disabled={
-                            product.quantity >= product.stock || isOutOfStock
-                          }
+                          disabled={product.quantity >= product.stock || isOutOfStock || printed}
                         >
                           <Plus size={14} />
                         </button>
                       </div>
-                      {product.quantity > product.stock && (
-                        <div className="flex items-center justify-center gap-1 text-red-500 text-xs mt-1">
-                          <AlertTriangle size={12} />
-                          <span>Max {product.stock}</span>
-                        </div>
-                      )}
                     </TableCell>
                     <TableCell className="px-4 py-3 text-center font-semibold text-gray-800">
                       ৳{total.toFixed(2)}
                     </TableCell>
                     <TableCell className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={() => handleEdit(product)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="Edit Product"
-                        >
-                          <PencilIcon />
-                        </button>
-                        <button
-                          onClick={() => onDeleteProduct(product.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Delete Product"
-                        >
-                          <TrashBinIcon />
-                        </button>
+                        {!printed && (
+                          <>
+                            <button
+                              onClick={() => handleEdit(product)}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="Edit Product"
+                            >
+                              <PencilIcon />
+                            </button>
+                            <button
+                              onClick={() => onDeleteProduct(product.id)}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Delete Product"
+                            >
+                              <TrashBinIcon />
+                            </button>
+                          </>
+                        )}
+                        {printed && (
+                          <span className="text-xs text-red-500 font-medium">
+                            Sent to Kitchen
+                          </span>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
                 );
               })}
 
-              {/* Total Row */}
               <TableRow className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
-                <TableCell
-                  colSpan={5}
-                  className="px-4 py-4 text-right font-bold text-gray-800 text-lg"
-                >
+                <TableCell colSpan={5} className="px-4 py-4 text-right font-bold text-gray-800 text-lg">
                   Total Amount
                 </TableCell>
                 <TableCell className="px-4 py-4 text-center font-bold text-blue-600 text-lg">
@@ -275,25 +254,13 @@ export default function AddToCartProduct({
                 <TableCell className="px-4 py-4"></TableCell>
               </TableRow>
 
-              {/* Summary Row */}
               <TableRow className="bg-gray-50 dark:bg-gray-800">
                 <TableCell colSpan={7} className="px-4 py-3">
                   <div className="flex flex-wrap justify-between items-center gap-2 text-sm text-gray-500">
-                    <span>
-                      Total Items:{" "}
-                      <strong>
-                        {cart.reduce((sum, item) => sum + item.quantity, 0)}
-                      </strong>
-                    </span>
-                    <span>
-                      Unique Products: <strong>{cart.length}</strong>
-                    </span>
-                    <span>
-                      Edited:{" "}
-                      <strong className="text-green-600">
-                        {editedProducts.length}
-                      </strong>
-                    </span>
+                    <span>Total Items: <strong>{cart.reduce((sum, item) => sum + item.quantity, 0)}</strong></span>
+                    <span>Unique Products: <strong>{cart.length}</strong></span>
+                    <span>Edited: <strong className="text-green-600">{editedProducts.length}</strong></span>
+                    <span>Printed: <strong className="text-red-600">{printedItems.length}</strong></span>
                   </div>
                 </TableCell>
               </TableRow>

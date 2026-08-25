@@ -12,7 +12,7 @@ import {
 } from "../../components/ui/table";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import Swal from "sweetalert2";
-import { Search, RotateCcw, Printer, Trash2, Eye, Loader2 } from "lucide-react";
+import { Search, RotateCcw, Printer, Trash2, Eye, Loader2, Edit2, Check, X } from "lucide-react";
 
 interface Sale {
   sale_id: number;
@@ -44,6 +44,9 @@ export default function SaleList() {
   const [loading, setLoading] = useState(false);
   const [filteredSales, setFilteredSales] = useState<Sale[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [editingPaymentId, setEditingPaymentId] = useState<number | null>(null);
+  const [editingPaymentValue, setEditingPaymentValue] = useState<string>("");
+  const [updatingPayment, setUpdatingPayment] = useState(false);
 
   const handleDateChange = (field: "formDate" | "toDate", value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -104,18 +107,29 @@ export default function SaleList() {
   const handleReset = () => {
     setFormData({ formDate: "", toDate: "", invoiceNo: "" });
     setSearchTerm("");
-    // Optionally refetch all data
     handleSubmit(new Event("submit") as any);
   };
 
   const handlePrint = (sale: Sale) => {
+    // Check if products exist
+    if (!sale.products || sale.products.length === 0) {
+      Swal.fire({
+        icon: "warning",
+        title: "No Products",
+        text: "This sale has no products to print.",
+        confirmButtonColor: "#3b82f6",
+      });
+      return;
+    }
+
     const printWindow = window.open("", "_blank", "width=400,height=600");
 
     if (!printWindow) {
       Swal.fire({
         icon: "error",
-        title: "Error!",
-        text: "Please allow popups for this site.",
+        title: "Popup Blocked!",
+        text: "Please allow popups for this site to print.",
+        confirmButtonColor: "#3b82f6",
       });
       return;
     }
@@ -125,48 +139,87 @@ export default function SaleList() {
         (p) => `
         <tr>
           <td>${p.product_name || "N/A"}</td>
-          <td style="text-align:right;">${p.quantity || 0}</td>
+          <td style="text-align:center;">${p.quantity || 0}</td>
           <td style="text-align:right;">${((p.total || 0) / (p.quantity || 1)).toFixed(2)}</td>
-          <td style="text-align:right;">${p.total || 0}</td>
+          <td style="text-align:right;">${(p.total || 0).toFixed(2)}</td>
         </tr>
       `,
       )
       .join("");
 
-    printWindow.document.write(`
+    const printContent = `
     <html>
       <head>
         <title>Invoice #${sale.invoiceNo}</title>
         <style>
-          body { font-family: monospace; font-size: 12px; margin: 0; padding: 10px; }
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { 
+            font-family: 'Courier New', monospace; 
+            font-size: 13px; 
+            padding: 15px; 
+            width: 280px;
+            margin: 0 auto;
+            background: white;
+          }
           .center { text-align: center; }
           .bold { font-weight: bold; }
-          .line { border-top: 1px dashed #000; margin: 5px 0; }
+          .line { border-top: 1px dashed #000; margin: 6px 0; }
           table { width: 100%; font-size: 12px; border-collapse: collapse; }
-          td { padding: 2px 0; }
+          td { padding: 3px 0; }
           .totals td { font-weight: bold; }
-          .header { border-bottom: 2px solid #000; padding-bottom: 5px; margin-bottom: 10px; }
-          .footer { border-top: 2px solid #000; padding-top: 10px; margin-top: 10px; }
-          .status-${sale.status || "active"} { 
-            background: ${sale.status === "completed" ? "#d1fae5" : sale.status === "printed" ? "#fef3c7" : "#dbeafe"}; 
-            padding: 2px 8px; 
+          .header { border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 8px; }
+          .footer { border-top: 2px solid #000; padding-top: 8px; margin-top: 8px; }
+          .text-right { text-align: right; }
+          .text-center { text-align: center; }
+          .status-badge {
+            background: ${sale.status === "completed" ? "#d1fae5" : sale.status === "printed" ? "#fef3c7" : "#dbeafe"};
+            padding: 2px 8px;
             border-radius: 4px;
+            display: inline-block;
+          }
+          .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 2px 0;
+          }
+          .info-row .label { font-weight: bold; }
+          .thankyou { font-size: 16px; font-weight: bold; margin-top: 6px; }
+          .sub { font-size: 10px; color: #666; margin-top: 2px; }
+          @media print {
+            body { width: 100%; }
           }
         </style>
       </head>
       <body>
         <div class="center header">
-          <div class="bold" style="font-size:18px;">My Company Name</div>
-          Address line, City<br/>
-          Phone: 123-456-7890
+          <div class="bold" style="font-size:18px;">My Store</div>
+          <div style="font-size:11px;">Address Line, City</div>
+          <div style="font-size:11px;">Phone: 123-456-7890</div>
         </div>
 
         <div>
-          <span class="bold">Invoice:</span> ${sale.invoiceNo}<br/>
-          <span class="bold">Date:</span> ${sale.entryDate}<br/>
-          <span class="bold">Payment:</span> ${sale.paymentMode}<br/>
-          ${sale.table_name ? `<span class="bold">Table:</span> ${sale.table_name} (${sale.table_number})<br/>` : ""}
-          ${sale.status ? `<span class="bold">Status:</span> <span class="status-${sale.status}">${sale.status.toUpperCase()}</span>` : ""}
+          <div class="info-row">
+            <span class="label">Invoice:</span>
+            <span>${sale.invoiceNo}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Date:</span>
+            <span>${sale.entryDate}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Payment:</span>
+            <span>${sale.paymentMode}</span>
+          </div>
+          ${sale.table_name ? `
+          <div class="info-row">
+            <span class="label">Table:</span>
+            <span>${sale.table_name} (${sale.table_number || 'N/A'})</span>
+          </div>` : ""}
+          ${sale.status ? `
+          <div class="info-row">
+            <span class="label">Status:</span>
+            <span><span class="status-badge">${sale.status.toUpperCase()}</span></span>
+          </div>` : ""}
         </div>
 
         <div class="line"></div>
@@ -174,58 +227,61 @@ export default function SaleList() {
           <thead>
             <tr>
               <td class="bold">Item</td>
-              <td class="bold" style="text-align:right;">Qty</td>
-              <td class="bold" style="text-align:right;">Price</td>
-              <td class="bold" style="text-align:right;">Total</td>
+              <td class="bold text-center">Qty</td>
+              <td class="bold text-right">Price</td>
+              <td class="bold text-right">Total</td>
             </tr>
           </thead>
           <tbody>
-            ${productsHtml || '<tr><td colspan="4" style="text-align:center;">No products</td></tr>'}
+            ${productsHtml || '<tr><td colspan="4" class="text-center">No products</td></tr>'}
           </tbody>
         </table>
         <div class="line"></div>
         <table class="totals">
           <tr>
             <td>Subtotal</td>
-            <td style="text-align:right;">${(sale.total || 0).toFixed(2)}</td>
+            <td class="text-right">${(sale.total || 0).toFixed(2)}</td>
           </tr>
           <tr>
             <td>Discount</td>
-            <td style="text-align:right;">${(sale.discount || 0).toFixed(2)}</td>
+            <td class="text-right">${(sale.discount || 0).toFixed(2)}</td>
           </tr>
           <tr>
             <td>SD</td>
-            <td style="text-align:right;">${(sale.sd || 0).toFixed(2)}</td>
+            <td class="text-right">${(sale.sd || 0).toFixed(2)}</td>
           </tr>
           <tr>
             <td>VAT</td>
-            <td style="text-align:right;">${(sale.vat || 0).toFixed(2)}</td>
+            <td class="text-right">${(sale.vat || 0).toFixed(2)}</td>
           </tr>
           <tr>
             <td class="bold">Total</td>
-            <td style="text-align:right;" class="bold">${(sale.total || 0).toFixed(2)}</td>
+            <td class="text-right bold">${(sale.total || 0).toFixed(2)}</td>
           </tr>
         </table>
         <div class="line"></div>
         <div class="center footer">
-          Thank you for your business!<br/>
-          <span style="font-size:10px;">Powered by MySoftware</span>
+          <div class="thankyou">*** Thank You! ***</div>
+          <div class="sub">Powered by MySoftware</div>
         </div>
       </body>
     </html>
-  `);
+  `;
 
+    printWindow.document.write(printContent);
     printWindow.document.close();
+    
     setTimeout(() => {
+      printWindow.focus();
       printWindow.print();
-      printWindow.close();
-    }, 500);
+      // Don't close immediately, let user close manually
+    }, 300);
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: number, invoiceNo: string) => {
     const result = await Swal.fire({
       title: "Are you sure?",
-      text: "This sale will be deleted permanently!",
+      text: `Sale #${invoiceNo} will be deleted permanently!`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#d33",
@@ -253,9 +309,77 @@ export default function SaleList() {
       console.error("Delete failed:", error);
       Swal.fire({
         icon: "error",
-        title: "Error!",
+        title: "Delete Failed!",
         text: error.response?.data?.message || "Failed to delete sale.",
+        confirmButtonColor: "#3b82f6",
       });
+    }
+  };
+
+  // ✅ Update Payment Mode
+  const handleEditPayment = (sale: Sale) => {
+    setEditingPaymentId(sale.sale_id);
+    setEditingPaymentValue(sale.paymentMode);
+  };
+
+  const handleCancelEditPayment = () => {
+    setEditingPaymentId(null);
+    setEditingPaymentValue("");
+  };
+
+  const handleUpdatePayment = async (id: number) => {
+    if (!editingPaymentValue) {
+      Swal.fire({
+        icon: "warning",
+        title: "Invalid Payment Mode",
+        text: "Please select a payment mode.",
+        confirmButtonColor: "#3b82f6",
+      });
+      return;
+    }
+
+    setUpdatingPayment(true);
+    try {
+      const response = await axios.put(
+        `http://localhost:8000/api/sales/${id}/update`,
+        {
+          paymentMode: editingPaymentValue,
+        }
+      );
+
+      // Update local state
+      setSales((prev) =>
+        prev.map((s) =>
+          s.sale_id === id ? { ...s, paymentMode: editingPaymentValue } : s
+        )
+      );
+      setFilteredSales((prev) =>
+        prev.map((s) =>
+          s.sale_id === id ? { ...s, paymentMode: editingPaymentValue } : s
+        )
+      );
+
+      Swal.fire({
+        icon: "success",
+        title: "Payment Updated!",
+        text: "Payment mode updated successfully.",
+        timer: 2000,
+        showConfirmButton: false,
+        position: "top-end",
+      });
+
+      setEditingPaymentId(null);
+      setEditingPaymentValue("");
+    } catch (error: any) {
+      console.error("Update payment failed:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Update Failed!",
+        text: error.response?.data?.message || "Failed to update payment mode.",
+        confirmButtonColor: "#3b82f6",
+      });
+    } finally {
+      setUpdatingPayment(false);
     }
   };
 
@@ -282,9 +406,10 @@ export default function SaleList() {
     );
   };
 
+  const paymentOptions = ["Cash", "Card", "Mobile"];
+
   return (
     <div className="container mx-auto px-4 py-6">
-      {/* Page Title */}
       <div className="mb-6">
         <PageBreadcrumb pageTitle="Sale List" />
       </div>
@@ -293,7 +418,6 @@ export default function SaleList() {
       <form onSubmit={handleSubmit} className="mb-6">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Form Date */}
             <div>
               <DatePicker
                 id="formDate"
@@ -307,7 +431,6 @@ export default function SaleList() {
               />
             </div>
 
-            {/* To Date */}
             <div>
               <DatePicker
                 id="toDate"
@@ -321,7 +444,6 @@ export default function SaleList() {
               />
             </div>
 
-            {/* Invoice No */}
             <div>
               <Label htmlFor="invoiceNo">Invoice No</Label>
               <Input
@@ -335,7 +457,6 @@ export default function SaleList() {
               />
             </div>
 
-            {/* Actions */}
             <div className="flex items-end gap-2">
               <button
                 type="submit"
@@ -481,65 +602,114 @@ export default function SaleList() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredSales.map((sale) => (
-                  <TableRow
-                    key={sale.sale_id}
-                    className="hover:bg-gray-50 transition-colors"
-                  >
-                    <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                      {sale.entryDate}
-                    </TableCell>
-                    <TableCell className="px-4 py-3 text-gray-700 font-medium text-start text-theme-sm dark:text-gray-400">
-                      {sale.invoiceNo}
-                    </TableCell>
-                    <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                      {sale.table_name || "-"}
-                    </TableCell>
-                    <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                      {sale.discount || 0}
-                    </TableCell>
-                    <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                      {sale.sd || 0}
-                    </TableCell>
-                    <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                      {sale.vat || 0}
-                    </TableCell>
-                    <TableCell className="px-4 py-3 text-gray-700 font-semibold text-start text-theme-sm dark:text-gray-400">
-                      ৳{sale.total?.toFixed(2) || 0}
-                    </TableCell>
-                    <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                      {sale.paymentMode}
-                    </TableCell>
-                    <TableCell className="px-4 py-3 text-start text-theme-sm dark:text-gray-400">
-                      {getStatusBadge(sale.status)}
-                    </TableCell>
-                    <TableCell className="px-4 py-3 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          onClick={() => handlePrint(sale)}
-                          title="Print Invoice"
-                        >
-                          <Printer size={18} />
-                        </button>
-                        <button
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          onClick={() => handleDelete(sale.sale_id)}
-                          title="Delete Sale"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                filteredSales.map((sale) => {
+                  const isEditing = editingPaymentId === sale.sale_id;
+
+                  return (
+                    <TableRow
+                      key={sale.sale_id}
+                      className="hover:bg-gray-50 transition-colors"
+                    >
+                      <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                        {sale.entryDate}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-gray-700 font-medium text-start text-theme-sm dark:text-gray-400">
+                        {sale.invoiceNo}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                        {sale.table_name || "-"}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                        {sale.discount || 0}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                        {sale.sd || 0}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                        {sale.vat || 0}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-gray-700 font-semibold text-start text-theme-sm dark:text-gray-400">
+                        ৳{sale.total?.toFixed(2) || 0}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-start text-theme-sm dark:text-gray-400">
+                        {isEditing ? (
+                          <div className="flex items-center gap-1">
+                            <select
+                              value={editingPaymentValue}
+                              onChange={(e) => setEditingPaymentValue(e.target.value)}
+                              className="px-2 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              disabled={updatingPayment}
+                            >
+                              {paymentOptions.map((option) => (
+                                <option key={option} value={option}>
+                                  {option}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={() => handleUpdatePayment(sale.sale_id)}
+                              className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors"
+                              disabled={updatingPayment}
+                              title="Save"
+                            >
+                              {updatingPayment ? (
+                                <Loader2 size={16} className="animate-spin" />
+                              ) : (
+                                <Check size={16} />
+                              )}
+                            </button>
+                            <button
+                              onClick={handleCancelEditPayment}
+                              className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                              disabled={updatingPayment}
+                              title="Cancel"
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span>{sale.paymentMode}</span>
+                            <button
+                              onClick={() => handleEditPayment(sale)}
+                              className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                              title="Edit Payment"
+                            >
+                              <Edit2 size={14} />
+                            </button>
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-start text-theme-sm dark:text-gray-400">
+                        {getStatusBadge(sale.status)}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            onClick={() => handlePrint(sale)}
+                            title="Print Invoice"
+                          >
+                            <Printer size={18} />
+                          </button>
+                          <button
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            onClick={() => handleDelete(sale.sale_id, sale.invoiceNo)}
+                            title="Delete Sale"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
         </div>
       </div>
 
-      {/* Footer */}
       {filteredSales.length > 0 && (
         <div className="mt-4 text-sm text-gray-500 text-center">
           Showing {filteredSales.length} of {sales.length} sales

@@ -47,6 +47,10 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [editedProducts, setEditedProducts] = useState<number[]>([]);
+  const [printedItems, setPrintedItems] = useState<number[]>(() => {
+    const stored = localStorage.getItem("printedItems");
+    return stored ? JSON.parse(stored) : [];
+  });
   const [currentSaleId, setCurrentSaleId] = useState<number | null>(() => {
     const stored = localStorage.getItem("currentSaleId");
     return stored ? JSON.parse(stored) : null;
@@ -68,6 +72,7 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
     } else {
       setCart([]);
       setEditedProducts([]);
+      setPrintedItems([]);
     }
   }, [selectedTable]);
 
@@ -87,6 +92,13 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
   }, [editedProducts, selectedTable]);
 
   useEffect(() => {
+    if (selectedTable) {
+      const key = `printedItems_${selectedTable.id}`;
+      localStorage.setItem(key, JSON.stringify(printedItems));
+    }
+  }, [printedItems, selectedTable]);
+
+  useEffect(() => {
     localStorage.setItem("selectedTable", JSON.stringify(selectedTable));
   }, [selectedTable]);
 
@@ -101,12 +113,15 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
   const loadCartForTable = (tableId: number) => {
     const cartKey = `cartItems_${tableId}`;
     const editedKey = `editedProducts_${tableId}`;
+    const printedKey = `printedItems_${tableId}`;
     
     const storedCart = localStorage.getItem(cartKey);
     const storedEdited = localStorage.getItem(editedKey);
+    const storedPrinted = localStorage.getItem(printedKey);
     
     setCart(storedCart ? JSON.parse(storedCart) : []);
     setEditedProducts(storedEdited ? JSON.parse(storedEdited) : []);
+    setPrintedItems(storedPrinted ? JSON.parse(storedPrinted) : []);
   };
 
   const totalAmount = cart.reduce(
@@ -195,7 +210,6 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
     }
   };
 
-  // ✅ Add product to cart and make table occupied
   const handleAddToCart = async (product: CartItem) => {
     if (!selectedTable) {
       triggerAlert("Please select a table first!", "warning");
@@ -212,7 +226,6 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
       return;
     }
 
-    // ✅ If table is available, make it occupied when adding first product
     if (selectedTable.status === "available" && cart.length === 0) {
       try {
         await axios.put(`http://localhost:8000/api/tables/${selectedTable.id}/status`, {
@@ -222,7 +235,6 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
           ...selectedTable,
           status: "occupied"
         });
-        console.log(`✅ Table ${selectedTable.table_name} is now OCCUPIED`);
       } catch (error) {
         console.error("Failed to update table status:", error);
       }
@@ -268,12 +280,10 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
     );
   };
 
-  // ✅ Clear cart and make table available
   const handleClearCart = async () => {
     if (cart.length === 0) return;
     
     if (window.confirm("Are you sure you want to clear the cart?")) {
-      // ✅ Make table available when clearing cart
       if (selectedTable) {
         try {
           await axios.put(`http://localhost:8000/api/tables/${selectedTable.id}/status`, {
@@ -283,7 +293,6 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
             ...selectedTable,
             status: "available"
           });
-          console.log(`✅ Table ${selectedTable.table_name} is now AVAILABLE`);
         } catch (error) {
           console.error("Failed to update table status:", error);
         }
@@ -291,6 +300,7 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
 
       setCart([]);
       setEditedProducts([]);
+      setPrintedItems([]);
       setSelectedTable(null);
       setCurrentSaleId(null);
       setSaleStatus("active");
@@ -300,6 +310,7 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
       if (selectedTable) {
         localStorage.removeItem(`cartItems_${selectedTable.id}`);
         localStorage.removeItem(`editedProducts_${selectedTable.id}`);
+        localStorage.removeItem(`printedItems_${selectedTable.id}`);
       }
       triggerAlert("Cart cleared successfully!", "success");
     }
@@ -347,7 +358,6 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-2 sm:p-4 md:p-6">
-      {/* Alert */}
       {stockAlert.show && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] sm:w-auto sm:max-w-md md:max-w-lg animate-slideDown">
           <Alert
@@ -362,7 +372,6 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
       )}
 
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Create Sale</h1>
@@ -391,7 +400,6 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
           </div>
         </div>
 
-        {/* Table Selector */}
         {!selectedTable && (
           <div className="max-w-7xl mx-auto mb-4">
             <TableSelector
@@ -401,7 +409,6 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
           </div>
         )}
 
-        {/* Status Bar */}
         {selectedTable && (
           <div className={`max-w-7xl mx-auto mb-4 p-3 rounded-lg shadow-sm border ${getStatusColor()}`}>
             <div className="flex flex-wrap justify-between items-center gap-2">
@@ -438,7 +445,6 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
           </div>
         )}
 
-        {/* Main Grid */}
         {selectedTable && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 md:gap-4">
             <div className="lg:col-span-2 order-2 lg:order-1">
@@ -457,6 +463,7 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
                   editedProducts={editedProducts}
                   totalAmount={totalAmount}
                   setEditedProducts={setEditedProducts}
+                  printedItems={printedItems}
                 />
               </div>
             </div>
@@ -472,6 +479,8 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
                   setSaleStatus={setSaleStatus}
                   onPrintBill={handlePrintBill}
                   currentSaleId={currentSaleId}
+                  printedItems={printedItems}
+                  setPrintedItems={setPrintedItems}
                 />
               </div>
             </div>
@@ -479,7 +488,6 @@ export default function CreateSale({ preselectedTable = null }: CreateSaleProps)
         )}
       </div>
 
-      {/* Table Selection Modal */}
       {isTableModalOpen && (
         <TableSelectionModal
           isOpen={isTableModalOpen}
