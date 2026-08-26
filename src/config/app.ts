@@ -1,5 +1,5 @@
 // src/config/app.ts
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 export const API_CONFIG = {
   baseURL: API_URL,
@@ -10,18 +10,18 @@ export const API_CONFIG = {
 };
 
 export const AUTH_ENDPOINTS = {
-  SIGNIN: '/api/auth/signin',  // ✅ Added /api/ prefix
-  SIGNUP: '/api/auth/signup',  // ✅ Added /api/ prefix
-  SIGNOUT: '/api/auth/signout', // ✅ Added /api/ prefix
-  ME: '/api/auth/me',          // ✅ Added /api/ prefix
-  REFRESH: '/api/auth/refresh', // ✅ Added /api/ prefix
+  SIGNIN: '/auth/signin',
+  SIGNUP: '/auth/signup',
+  SIGNOUT: '/auth/signout',
+  ME: '/auth/me',
+  REFRESH: '/auth/refresh',
 };
 
 export const USER_ENDPOINTS = {
-  GET_ALL: '/api/users',
-  GET_BY_ID: (id: string) => `/api/users/${id}`,
-  CREATE: '/api/users',
-  UPDATE: (id: string) => `/api/users/${id}`,
-  DELETE: (id: string) => `/api/users/${id}`,
-  UPDATE_STATUS: (id: string) => `/api/users/${id}/status`,
+  GET_ALL: '/users',
+  GET_BY_ID: (id: string) => `/users/${id}`,
+  CREATE: '/users',
+  UPDATE: (id: string) => `/users/${id}`,
+  DELETE: (id: string) => `/users/${id}`,
+  UPDATE_STATUS: (id: string) => `/users/${id}/status`,
 };

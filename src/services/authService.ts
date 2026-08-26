@@ -32,31 +32,77 @@ class AuthService {
     firstName: string;
     lastName: string;
   }): Promise<AuthResponse> {
-    const response = await api.post('/api/auth/signup', data);
-    return response.data;
+    try {
+      console.log('📤 Signup request:', data);
+      const response = await api.post('/auth/signup', data);
+      console.log('📥 Signup response:', response);
+      return response as AuthResponse;
+    } catch (error: any) {
+      console.error('❌ Signup error:', error);
+      // If error has response data, return it
+      if (error.response?.data) {
+        throw error.response.data;
+      }
+      throw error;
+    }
   }
 
   async signin(data: {
     usernameOrEmail: string;
     password: string;
   }): Promise<AuthResponse> {
-    const response = await api.post('/auth/signin', data);
-    return response.data;
+    try {
+      console.log('📤 Signin request:', { usernameOrEmail: data.usernameOrEmail });
+      const response = await api.post('/auth/signin', data);
+      console.log('📥 Signin response:', response);
+      return response as AuthResponse;
+    } catch (error: any) {
+      console.error('❌ Signin error:', error);
+      // If error has response data, throw it
+      if (error.response?.data) {
+        throw error.response.data;
+      }
+      throw error;
+    }
   }
 
   async signout(): Promise<AuthResponse> {
-    const response = await api.post('/auth/signout');
-    return response.data;
+    try {
+      const response = await api.post('/auth/signout');
+      return response as AuthResponse;
+    } catch (error: any) {
+      console.error('❌ Signout error:', error);
+      if (error.response?.data) {
+        throw error.response.data;
+      }
+      throw error;
+    }
   }
 
   async getMe(): Promise<AuthResponse> {
-    const response = await api.get('/auth/me');
-    return response.data;
+    try {
+      const response = await api.get('/auth/me');
+      return response as AuthResponse;
+    } catch (error: any) {
+      console.error('❌ Get me error:', error);
+      if (error.response?.data) {
+        throw error.response.data;
+      }
+      throw error;
+    }
   }
 
   async refreshToken(): Promise<AuthResponse> {
-    const response = await api.post('/auth/refresh');
-    return response.data;
+    try {
+      const response = await api.post('/auth/refresh');
+      return response as AuthResponse;
+    } catch (error: any) {
+      console.error('❌ Refresh token error:', error);
+      if (error.response?.data) {
+        throw error.response.data;
+      }
+      throw error;
+    }
   }
 
   // ==================== USER MANAGEMENT (CRUD) ====================
@@ -70,13 +116,29 @@ class AuthService {
     per_page?: number;
     page?: number;
   }): Promise<any> {
-    const response = await api.get('/users', { params });
-    return response.data;
+    try {
+      const response = await api.get('/users', { params });
+      return response;
+    } catch (error: any) {
+      console.error('❌ Get users error:', error);
+      if (error.response?.data) {
+        throw error.response.data;
+      }
+      throw error;
+    }
   }
 
   async getUser(id: number): Promise<AuthResponse> {
-    const response = await api.get(`/users/${id}`);
-    return response.data;
+    try {
+      const response = await api.get(`/users/${id}`);
+      return response as AuthResponse;
+    } catch (error: any) {
+      console.error('❌ Get user error:', error);
+      if (error.response?.data) {
+        throw error.response.data;
+      }
+      throw error;
+    }
   }
 
   async createUser(data: {
@@ -88,8 +150,16 @@ class AuthService {
     role?: 'admin' | 'user';
     status?: 'active' | 'inactive' | 'banned';
   }): Promise<AuthResponse> {
-    const response = await api.post('/users', data);
-    return response.data;
+    try {
+      const response = await api.post('/users', data);
+      return response as AuthResponse;
+    } catch (error: any) {
+      console.error('❌ Create user error:', error);
+      if (error.response?.data) {
+        throw error.response.data;
+      }
+      throw error;
+    }
   }
 
   async updateUser(id: number, data: {
@@ -101,28 +171,68 @@ class AuthService {
     role?: 'admin' | 'user';
     status?: 'active' | 'inactive' | 'banned';
   }): Promise<AuthResponse> {
-    const response = await api.put(`/users/${id}`, data);
-    return response.data;
+    try {
+      const response = await api.put(`/users/${id}`, data);
+      return response as AuthResponse;
+    } catch (error: any) {
+      console.error('❌ Update user error:', error);
+      if (error.response?.data) {
+        throw error.response.data;
+      }
+      throw error;
+    }
   }
 
   async deleteUser(id: number): Promise<AuthResponse> {
-    const response = await api.delete(`/users/${id}`);
-    return response.data;
+    try {
+      const response = await api.delete(`/users/${id}`);
+      return response as AuthResponse;
+    } catch (error: any) {
+      console.error('❌ Delete user error:', error);
+      if (error.response?.data) {
+        throw error.response.data;
+      }
+      throw error;
+    }
   }
 
   async updateUserStatus(id: number, status: 'active' | 'inactive' | 'banned'): Promise<AuthResponse> {
-    const response = await api.put(`/users/${id}/status`, { status });
-    return response.data;
+    try {
+      const response = await api.put(`/users/${id}/status`, { status });
+      return response as AuthResponse;
+    } catch (error: any) {
+      console.error('❌ Update user status error:', error);
+      if (error.response?.data) {
+        throw error.response.data;
+      }
+      throw error;
+    }
   }
 
   async updateUserRole(id: number, role: 'admin' | 'user'): Promise<AuthResponse> {
-    const response = await api.put(`/users/${id}/role`, { role });
-    return response.data;
+    try {
+      const response = await api.put(`/users/${id}/role`, { role });
+      return response as AuthResponse;
+    } catch (error: any) {
+      console.error('❌ Update user role error:', error);
+      if (error.response?.data) {
+        throw error.response.data;
+      }
+      throw error;
+    }
   }
 
   async bulkDeleteUsers(ids: number[]): Promise<AuthResponse> {
-    const response = await api.post('/users/bulk-delete', { ids });
-    return response.data;
+    try {
+      const response = await api.post('/users/bulk-delete', { ids });
+      return response as AuthResponse;
+    } catch (error: any) {
+      console.error('❌ Bulk delete users error:', error);
+      if (error.response?.data) {
+        throw error.response.data;
+      }
+      throw error;
+    }
   }
 }
 

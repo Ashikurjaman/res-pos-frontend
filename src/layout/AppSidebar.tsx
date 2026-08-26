@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
-
-// Assume these icons are imported from an icon library
+import { useSidebar } from "../context/SidebarContext";
+import SidebarWidget from "./SidebarWidget";
+import { useAuth } from "../hooks/useAuth";
 import {
-  BoxCubeIcon,
+  GridIcon,
   CalenderIcon,
   ChevronDownIcon,
-  GridIcon,
-  HorizontaLDots,
   ListIcon,
   PageIcon,
   PencilIcon,
@@ -15,10 +14,24 @@ import {
   PlugInIcon,
   TableIcon,
   UserCircleIcon,
+  BoxCubeIcon,
+  HorizontaLDots,
 } from "../icons";
-import { useSidebar } from "../context/SidebarContext";
-import SidebarWidget from "./SidebarWidget";
-import { PackageIcon } from "lucide-react";
+import {
+  Building,
+  PackageIcon,
+  ShoppingCart,
+  Settings,
+  Users,
+  LayoutDashboard,
+  Menu,
+  Store,
+  FileText,
+  ClipboardList,
+  Truck,
+  Boxes,
+  LogOut,
+} from "lucide-react";
 
 type NavItem = {
   name: string;
@@ -27,133 +40,10 @@ type NavItem = {
   subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
 };
 
-const navItems: NavItem[] = [
-  {
-    icon: <GridIcon />,
-    name: "Dashboard",
-    subItems: [{ name: "Ecommerce", path: "/", pro: false }],
-  },
-  {
-    icon: <GridIcon />,
-    name: "Sale",
-    subItems: [
-      { name: "Create Sale", path: "/sale", pro: false },
-      { name: "Sale List", path: "/sale-list", pro: false },
-    ],
-  },
-  {
-    icon: <GridIcon />,
-    name: "Inventory",
-    subItems: [
-      { name: "Inventory Request", path: "/sale", pro: false },
-      { name: "Inventory Receive", path: "/sale-list", pro: false },
-      { name: "Wastage", path: "/sale-list", pro: false },
-      { name: "Wastage List", path: "/sale-list", pro: false },
-      { name: "Dispatch", path: "/sale-list", pro: false },
-      { name: "Dispatch List", path: "/sale-list", pro: false },
-    ],
-  },
-  {
-    icon: <GridIcon />,
-    name: "Settings",
-    subItems: [
-      { name: "Unit Create", path: "/unit", pro: false },
-      { name: "Unit List", path: "/unit-list", pro: false },
-    ],
-  },
-  {
-    icon: <PencilIcon />,
-    name: "Product",
-    subItems: [
-      { name: "Product Create", path: "/products", pro: false },
-      { name: "Product List", path: "/products-list", pro: false },
-    ],
-  },
-  {
-    icon: <PackageIcon />,
-    name: "Stock",
-    subItems: [
-      { name: "Stock Management", path: "/stock-management", pro: false },
-    ],
-  },
-  {
-    icon: <PencilIcon />,
-    name: "Category",
-    subItems: [
-      { name: "Category Create", path: "/category", pro: false },
-      { name: "Category List", path: "/category-list", pro: false },
-    ],
-  },
-  // ✅ Table Management
-  {
-    icon: <TableIcon />,
-    name: "Tables",
-    subItems: [{ name: "Table Management", path: "/tables", pro: false }],
-  },
-  {
-    icon: <CalenderIcon />,
-    name: "Calendar",
-    path: "/calendar",
-  },
-  {
-    icon: <UserCircleIcon />,
-    name: "User Profile",
-    path: "/profile",
-  },
-  {
-    name: "Forms",
-    icon: <ListIcon />,
-    subItems: [{ name: "Form Elements", path: "/form-elements", pro: false }],
-  },
-  {
-    name: "Data Tables",
-    icon: <TableIcon />,
-    subItems: [{ name: "Basic Tables", path: "/basic-tables", pro: false }],
-  },
-  {
-    name: "Pages",
-    icon: <PageIcon />,
-    subItems: [
-      { name: "Blank Page", path: "/blank", pro: false },
-      { name: "404 Error", path: "/error-404", pro: false },
-    ],
-  },
-];
-
-const othersItems: NavItem[] = [
-  {
-    icon: <PieChartIcon />,
-    name: "Charts",
-    subItems: [
-      { name: "Line Chart", path: "/line-chart", pro: false },
-      { name: "Bar Chart", path: "/bar-chart", pro: false },
-    ],
-  },
-  {
-    icon: <BoxCubeIcon />,
-    name: "UI Elements",
-    subItems: [
-      { name: "Alerts", path: "/alerts", pro: false },
-      { name: "Avatar", path: "/avatars", pro: false },
-      { name: "Badge", path: "/badge", pro: false },
-      { name: "Buttons", path: "/buttons", pro: false },
-      { name: "Images", path: "/images", pro: false },
-      { name: "Videos", path: "/videos", pro: false },
-    ],
-  },
-  {
-    icon: <PlugInIcon />,
-    name: "Authentication",
-    subItems: [
-      { name: "Sign In", path: "/signin", pro: false },
-      { name: "Sign Up", path: "/signup", pro: false },
-    ],
-  },
-];
-
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const location = useLocation();
+  const { user, signOut, isAuthenticated } = useAuth();
 
   const [openSubmenu, setOpenSubmenu] = useState<{
     type: "main" | "others";
@@ -168,6 +58,130 @@ const AppSidebar: React.FC = () => {
     (path: string) => location.pathname === path,
     [location.pathname],
   );
+
+  const navItems: NavItem[] = [
+    {
+      icon: <LayoutDashboard size={20} />,
+      name: "Dashboard",
+      path: "/dashboard",
+    },
+    {
+      icon: <ShoppingCart size={20} />,
+      name: "Sale",
+      subItems: [
+        { name: "Create Sale", path: "/create-sale" },
+        { name: "Sale List", path: "/sale-list" },
+      ],
+    },
+    {
+      icon: <PackageIcon size={20} />,
+      name: "Products",
+      subItems: [
+        { name: "Product Create", path: "/products" },
+        { name: "Product List", path: "/products-list" },
+        { name: "Stock Management", path: "/stock-management" },
+      ],
+    },
+    {
+      icon: <GridIcon />,
+      name: "Inventory",
+      subItems: [
+        { name: "Inventory Request", path: "/inventory-request" },
+        { name: "Inventory Receive", path: "/inventory-receive" },
+        { name: "Wastage", path: "/wastage" },
+        { name: "Wastage List", path: "/wastage-list" },
+        { name: "Dispatch", path: "/dispatch" },
+        { name: "Dispatch List", path: "/dispatch-list" },
+      ],
+    },
+    {
+      icon: <FileText size={20} />,
+      name: "Category",
+      subItems: [
+        { name: "Category Create", path: "/category" },
+        { name: "Category List", path: "/category-list" },
+      ],
+    },
+    {
+      icon: <ClipboardList size={20} />,
+      name: "Unit",
+      subItems: [
+        { name: "Unit Create", path: "/unit" },
+        { name: "Unit List", path: "/unit-list" },
+      ],
+    },
+    {
+      icon: <Store size={20} />,
+      name: "Tables",
+      path: "/tables",
+    },
+    {
+      icon: <Building size={20} />,
+      name: "Company",
+      path: "/companies",
+    },
+    {
+      icon: <Settings size={20} />,
+      name: "Settings",
+      subItems: [
+        { name: "Profile", path: "/profile" },
+        { name: "Calendar", path: "/calendar" },
+        {
+          name: "Outlets",
+          path: "/outlets",
+        },
+      ],
+    },
+  ];
+
+  const othersItems: NavItem[] = [
+    {
+      icon: <Users size={20} />,
+      name: "User Management",
+      path: "/users",
+    },
+    {
+      icon: <PieChartIcon />,
+      name: "Charts",
+      subItems: [
+        { name: "Line Chart", path: "/line-chart" },
+        { name: "Bar Chart", path: "/bar-chart" },
+      ],
+    },
+    {
+      icon: <BoxCubeIcon />,
+      name: "UI Elements",
+      subItems: [
+        { name: "Alerts", path: "/alerts" },
+        { name: "Avatar", path: "/avatars" },
+        { name: "Badge", path: "/badge" },
+        { name: "Buttons", path: "/buttons" },
+        { name: "Images", path: "/images" },
+        { name: "Videos", path: "/videos" },
+      ],
+    },
+    {
+      icon: <TableIcon />,
+      name: "Tables",
+      subItems: [{ name: "Basic Tables", path: "/basic-tables" }],
+    },
+    {
+      icon: <PageIcon />,
+      name: "Pages",
+      subItems: [
+        { name: "Blank Page", path: "/blank" },
+        { name: "404 Error", path: "/error-404" },
+      ],
+    },
+    {
+      icon: <PlugInIcon />,
+      name: "Authentication",
+      subItems: [
+        { name: "Sign In", path: "/signin" },
+        { name: "Sign Up", path: "/signup" },
+      ],
+    },
+  ];
 
   useEffect(() => {
     let submenuMatched = false;
@@ -184,11 +198,13 @@ const AppSidebar: React.FC = () => {
               submenuMatched = true;
             }
           });
+        } else if (nav.path && isActive(nav.path)) {
+          setOpenSubmenu(null);
         }
       });
     });
 
-    if (!submenuMatched) {
+    if (!submenuMatched && openSubmenu !== null) {
       setOpenSubmenu(null);
     }
   }, [location, isActive]);
@@ -216,6 +232,10 @@ const AppSidebar: React.FC = () => {
       }
       return { type: menuType, index };
     });
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
   };
 
   const renderMenuItems = (items: NavItem[], menuType: "main" | "others") => (
@@ -333,10 +353,10 @@ const AppSidebar: React.FC = () => {
           !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
         }`}
       >
-        <Link to="/" className="flex items-center gap-3">
+        <Link to="/dashboard" className="flex items-center gap-3">
           {isExpanded || isHovered || isMobileOpen ? (
             <>
-              <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
+              <div className="w-9 h-9 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0">
                 <span className="text-white font-bold text-lg">S</span>
               </div>
               <span className="text-xl font-bold text-gray-800 dark:text-white">
@@ -344,7 +364,7 @@ const AppSidebar: React.FC = () => {
               </span>
             </>
           ) : (
-            <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center">
+            <div className="w-9 h-9 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
               <span className="text-white font-bold text-lg">S</span>
             </div>
           )}
@@ -394,25 +414,34 @@ const AppSidebar: React.FC = () => {
         </nav>
 
         {/* Sidebar Footer / User Info */}
-        {(isExpanded || isHovered || isMobileOpen) && (
+        {isAuthenticated && (isExpanded || isHovered || isMobileOpen) && (
           <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-800">
             <div className="flex items-center gap-3 px-3 py-2">
-              <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
-                <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">
-                  JD
-                </span>
+              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold">
+                {user?.first_name?.charAt(0) || "U"}
+                {user?.last_name?.charAt(0) || ""}
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium text-gray-800 dark:text-white">
-                  John Doe
+                  {user?.first_name} {user?.last_name}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Administrator
+                <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">
+                  {user?.role || "User"}
                 </p>
               </div>
+              <button
+                onClick={handleSignOut}
+                className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                aria-label="Sign out"
+              >
+                <LogOut size={18} />
+              </button>
             </div>
           </div>
         )}
+
+        {/* Sidebar Widget - Only show when expanded */}
+        {(isExpanded || isHovered || isMobileOpen) && <SidebarWidget />}
       </div>
     </aside>
   );

@@ -11,6 +11,7 @@ import {
   Lock,
   UserCheck,
   AlertCircle,
+  CheckCircle,
 } from "lucide-react";
 
 interface SignUpData {
@@ -36,6 +37,7 @@ export default function SignUpForm() {
   const [showConfirmPassword, setShowConfirmPassword] =
     useState<boolean>(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [signupSuccess, setSignupSuccess] = useState<boolean>(false);
 
   const { signUp } = useAuth();
   const navigate = useNavigate();
@@ -63,7 +65,6 @@ export default function SignUpForm() {
   }, []);
 
   const validate = useCallback(() => {
-    // Validate username
     if (!formData.username.trim()) {
       return "Username is required";
     }
@@ -74,7 +75,6 @@ export default function SignUpForm() {
       return "Username must be less than 20 characters";
     }
 
-    // Validate email (optional)
     if (
       formData.email.trim() &&
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)
@@ -82,22 +82,18 @@ export default function SignUpForm() {
       return "Please enter a valid email address";
     }
 
-    // Validate password (any password allowed, just need to match)
     if (!formData.password) {
       return "Password is required";
     }
 
-    // Validate confirm password
     if (formData.password !== confirmPassword) {
       return "Passwords do not match";
     }
 
-    // Validate first name
     if (!formData.firstName.trim()) {
       return "First name is required";
     }
 
-    // Validate last name
     if (!formData.lastName.trim()) {
       return "Last name is required";
     }
@@ -109,6 +105,7 @@ export default function SignUpForm() {
     async (e: React.FormEvent) => {
       e.preventDefault();
       setError("");
+      setSignupSuccess(false);
 
       const validationError = validate();
       if (validationError) {
@@ -119,18 +116,54 @@ export default function SignUpForm() {
       setLoading(true);
 
       try {
+        // ✅ Call signUp from useAuth
         await signUp(formData);
-        navigate("/dashboard", {
-          state: { message: "Account created successfully!" },
-        });
+
+        // ✅ Set success state
+        setSignupSuccess(true);
+
+        // ✅ Navigate to signin after delay
+        setTimeout(() => {
+          navigate("/signin");
+        }, 2000);
       } catch (err: any) {
+        console.error("Signup error:", err);
         setError(err.message || "Failed to create account. Please try again.");
+        setSignupSuccess(false);
       } finally {
         setLoading(false);
       }
     },
     [formData, validate, signUp, navigate],
   );
+
+  // ✅ Show success screen
+  if (signupSuccess) {
+    return (
+      <div className="w-full max-w-md mx-auto text-center py-12">
+        <div className="mb-6">
+          <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto">
+            <CheckCircle
+              size={40}
+              className="text-green-600 dark:text-green-400"
+            />
+          </div>
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+          Account Created! 🎉
+        </h2>
+        <p className="text-gray-600 dark:text-gray-400 mb-2">
+          Your account has been created successfully.
+        </p>
+        <p className="text-sm text-gray-500 dark:text-gray-500">
+          Redirecting to sign in...
+        </p>
+        <div className="mt-6 flex justify-center">
+          <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-md mx-auto">
@@ -156,17 +189,21 @@ export default function SignUpForm() {
       {/* Error Message */}
       {error && (
         <div
-          className="p-3 mb-4 text-sm text-red-600 bg-red-100 rounded-lg dark:bg-red-900/20 dark:text-red-400 flex items-center gap-2"
+          className="p-3 mb-4 text-sm text-red-600 bg-red-100 rounded-lg dark:bg-red-900/20 dark:text-red-400 flex items-start gap-2"
           role="alert"
           aria-live="polite"
         >
-          <AlertCircle size={16} aria-hidden="true" />
-          {error}
+          <AlertCircle
+            size={16}
+            className="mt-0.5 flex-shrink-0"
+            aria-hidden="true"
+          />
+          <span>{error}</span>
         </div>
       )}
 
       {/* Sign Up Form */}
-      <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         {/* First Name & Last Name */}
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -356,7 +393,9 @@ export default function SignUpForm() {
               )}
             </button>
           </div>
-          <p className="mt-1 text-xs text-gray-500">Any password is allowed</p>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Any password is allowed
+          </p>
         </div>
 
         {/* Confirm Password */}

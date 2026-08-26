@@ -7,10 +7,13 @@ export default function SignIn() {
   return (
     <>
       <PageMeta
-        title="Sign In | Your App"
-        description="Sign in to your account"
+        title="Sign In | A&T POS"
+        description="Sign in to your account to access the dashboard"
       />
-      <AuthLayout>
+      <AuthLayout
+        title="Welcome Back"
+        subtitle="Sign in to your account to continue"
+      >
         <SignInForm />
       </AuthLayout>
     </>

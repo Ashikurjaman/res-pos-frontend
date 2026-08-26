@@ -5,6 +5,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { Eye, EyeOff, Loader2, Mail, User, Lock } from "lucide-react";
 
 export default function SignInForm() {
+  // ✅ Remove duplicate declarations - keep only one set
   const [loginIdentifier, setLoginIdentifier] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [rememberMe, setRememberMe] = useState<boolean>(false);
@@ -13,6 +14,7 @@ export default function SignInForm() {
   const [loginType, setLoginType] = useState<"username" | "email">("username");
   const [showPassword, setShowPassword] = useState<boolean>(false);
 
+  // ✅ Remove duplicate - keep only one
   const { signIn } = useAuth();
   const navigate = useNavigate();
 
@@ -30,6 +32,7 @@ export default function SignInForm() {
         });
         navigate("/dashboard");
       } catch (err: any) {
+        console.error("Signin error:", err);
         setError(err.message || "Invalid username/email or password");
       } finally {
         setLoading(false);
@@ -78,7 +81,7 @@ export default function SignInForm() {
         </p>
       </div>
 
-      {/* Username/Email Toggle Button */}
+      {/* Username/Email Toggle */}
       <div className="flex rounded-lg bg-gray-100 dark:bg-gray-700 p-1 mb-6">
         <button
           type="button"
@@ -111,11 +114,12 @@ export default function SignInForm() {
       {/* Error Message */}
       {error && (
         <div
-          className="p-3 mb-4 text-sm text-red-600 bg-red-100 rounded-lg dark:bg-red-900/20 dark:text-red-400"
+          className="p-3 mb-4 text-sm text-red-600 bg-red-100 rounded-lg dark:bg-red-900/20 dark:text-red-400 flex items-start gap-2"
           role="alert"
           aria-live="polite"
         >
-          {error}
+          <span className="mt-0.5">⚠️</span>
+          <span>{error}</span>
         </div>
       )}
 

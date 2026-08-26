@@ -2,12 +2,12 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://localhost:8000",
+  baseURL: "http://localhost:8000/api",
   headers: {
     "Content-Type": "application/json",
     "Accept": "application/json",
   },
-  withCredentials: false, // ✅ Set to false since we're using token auth
+  withCredentials: false,
 });
 
 // Request interceptor
@@ -24,18 +24,48 @@ api.interceptors.request.use(
 
 // Response interceptor
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Return the full response data
+    return response.data;
+  },
   (error) => {
+    console.error('API Error:', error);
+    
+    // Handle network errors
     if (error.code === "ERR_NETWORK") {
-      console.error("Network error - CORS or connection issue:", error);
+      console.error("Network error - please check your connection");
+      return Promise.reject({
+        success: false,
+        message: "Network error - please check your connection"
+      });
     }
     
+    // Handle 401 Unauthorized
     if (error.response?.status === 401) {
       localStorage.removeItem("authToken");
       sessionStorage.removeItem("authToken");
       window.location.href = "/signin";
+      return Promise.reject({
+        success: false,
+        message: "Session expired. Please login again."
+      });
     }
-    return Promise.reject(error);
+    
+    // Handle 422 Validation Error
+    if (error.response?.status === 422) {
+      return Promise.reject({
+        success: false,
+        message: "Validation failed",
+        errors: error.response.data?.errors
+      });
+    }
+    
+    // Handle other errors
+    return Promise.reject({
+      success: false,
+      message: error.response?.data?.message || error.message || "An error occurred",
+      status: error.response?.status
+    });
   }
 );
 
