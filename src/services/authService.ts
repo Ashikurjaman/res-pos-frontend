@@ -32,7 +32,7 @@ class AuthService {
     firstName: string;
     lastName: string;
   }): Promise<AuthResponse> {
-    const response = await api.post('/auth/signup', data);
+    const response = await api.post('/api/auth/signup', data);
     return response.data;
   }
 
