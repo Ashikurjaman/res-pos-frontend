@@ -24,13 +24,16 @@ import {
   Settings,
   Users,
   LayoutDashboard,
-  Menu,
   Store,
   FileText,
   ClipboardList,
   Truck,
-  Boxes,
   LogOut,
+  Package,
+  Boxes,
+  ClipboardCheck,
+  Utensils,
+  Layers,
 } from "lucide-react";
 
 type NavItem = {
@@ -59,6 +62,7 @@ const AppSidebar: React.FC = () => {
     [location.pathname],
   );
 
+  // Main Navigation Items
   const navItems: NavItem[] = [
     {
       icon: <LayoutDashboard size={20} />,
@@ -74,7 +78,7 @@ const AppSidebar: React.FC = () => {
       ],
     },
     {
-      icon: <PackageIcon size={20} />,
+      icon: <Package size={20} />,
       name: "Products",
       subItems: [
         { name: "Product Create", path: "/products" },
@@ -83,19 +87,12 @@ const AppSidebar: React.FC = () => {
       ],
     },
     {
-      icon: <GridIcon />,
-      name: "Inventory",
-      subItems: [
-        { name: "Inventory Request", path: "/inventory-request" },
-        { name: "Inventory Receive", path: "/inventory-receive" },
-        { name: "Wastage", path: "/wastage" },
-        { name: "Wastage List", path: "/wastage-list" },
-        { name: "Dispatch", path: "/dispatch" },
-        { name: "Dispatch List", path: "/dispatch-list" },
-      ],
+      icon: <Truck size={20} />,
+      name: "Suppliers",
+      path: "/suppliers",
     },
     {
-      icon: <FileText size={20} />,
+      icon: <Layers size={20} />,
       name: "Category",
       subItems: [
         { name: "Category Create", path: "/category" },
@@ -112,8 +109,8 @@ const AppSidebar: React.FC = () => {
     },
     {
       icon: <Store size={20} />,
-      name: "Tables",
-      path: "/tables",
+      name: "Outlets",
+      path: "/outlets",
     },
     {
       icon: <Building size={20} />,
@@ -121,19 +118,21 @@ const AppSidebar: React.FC = () => {
       path: "/companies",
     },
     {
+      icon: <Boxes size={20} />,
+      name: "Tables",
+      path: "/tables",
+    },
+    {
       icon: <Settings size={20} />,
       name: "Settings",
       subItems: [
         { name: "Profile", path: "/profile" },
         { name: "Calendar", path: "/calendar" },
-        {
-          name: "Outlets",
-          path: "/outlets",
-        },
       ],
     },
   ];
 
+  // Others Navigation Items
   const othersItems: NavItem[] = [
     {
       icon: <Users size={20} />,
@@ -171,6 +170,7 @@ const AppSidebar: React.FC = () => {
       subItems: [
         { name: "Blank Page", path: "/blank" },
         { name: "404 Error", path: "/error-404" },
+        { name: "Unauthorized", path: "/unauthorized" },
       ],
     },
     {
@@ -183,6 +183,7 @@ const AppSidebar: React.FC = () => {
     },
   ];
 
+  // Auto-open submenu based on active route
   useEffect(() => {
     let submenuMatched = false;
     ["main", "others"].forEach((menuType) => {
@@ -209,6 +210,7 @@ const AppSidebar: React.FC = () => {
     }
   }, [location, isActive]);
 
+  // Calculate submenu height for animation
   useEffect(() => {
     if (openSubmenu !== null) {
       const key = `${openSubmenu.type}-${openSubmenu.index}`;
@@ -245,7 +247,7 @@ const AppSidebar: React.FC = () => {
           {nav.subItems ? (
             <button
               onClick={() => handleSubmenuToggle(index, menuType)}
-              className={`menu-item group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
+              className={`menu-item group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 openSubmenu?.type === menuType && openSubmenu?.index === index
                   ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
                   : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
@@ -272,7 +274,7 @@ const AppSidebar: React.FC = () => {
             nav.path && (
               <Link
                 to={nav.path}
-                className={`menu-item group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                className={`menu-item group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   isActive(nav.path)
                     ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
                     : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
@@ -303,13 +305,13 @@ const AppSidebar: React.FC = () => {
                   <li key={subItem.name}>
                     <Link
                       to={subItem.path}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         isActive(subItem.path)
                           ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
                           : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
                       }`}
                     >
-                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500"></span>
                       {subItem.name}
                       {subItem.new && (
                         <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
@@ -334,7 +336,7 @@ const AppSidebar: React.FC = () => {
 
   return (
     <aside
-      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-3 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 
+      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-3 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200
         ${
           isExpanded || isMobileOpen
             ? "w-[280px]"
@@ -375,7 +377,7 @@ const AppSidebar: React.FC = () => {
       <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar flex-1">
         <nav className="flex-1">
           <div className="flex flex-col gap-2">
-            {/* Menu Section */}
+            {/* Main Menu Section */}
             <div>
               <h2
                 className={`mb-2 text-xs uppercase tracking-wider text-gray-400 dark:text-gray-500 ${
@@ -421,8 +423,8 @@ const AppSidebar: React.FC = () => {
                 {user?.first_name?.charAt(0) || "U"}
                 {user?.last_name?.charAt(0) || ""}
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-800 dark:text-white">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-800 dark:text-white truncate">
                   {user?.first_name} {user?.last_name}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">
@@ -431,7 +433,7 @@ const AppSidebar: React.FC = () => {
               </div>
               <button
                 onClick={handleSignOut}
-                className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
                 aria-label="Sign out"
               >
                 <LogOut size={18} />
@@ -440,7 +442,7 @@ const AppSidebar: React.FC = () => {
           </div>
         )}
 
-        {/* Sidebar Widget - Only show when expanded */}
+        {/* Sidebar Widget */}
         {(isExpanded || isHovered || isMobileOpen) && <SidebarWidget />}
       </div>
     </aside>

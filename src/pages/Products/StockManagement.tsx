@@ -79,7 +79,7 @@ export default function StockManagement() {
     try {
       setLoading(true);
       const response = await axios.get(
-        `${API_CONFIG.baseURL}/api/products/with-stock`,
+        `${API_CONFIG.baseURL}/products/with-stock`,
       );
 
       const productsData = response.data.data || [];

@@ -1,3 +1,4 @@
+// src/pages/Category/CategoryEdit.tsx
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router";
 import axios from "axios";
@@ -49,9 +50,7 @@ export default function CategoryEdit() {
 
   // Get auth token
   const getAuthToken = useCallback(() => {
-    return (
-      localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
-    );
+    return localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
   }, []);
 
   const fetchCategory = useCallback(async () => {
@@ -67,7 +66,6 @@ export default function CategoryEdit() {
         },
       });
 
-      // Handle different response structures
       let categoryData = response.data;
       if (response.data.data) {
         categoryData = response.data.data;
@@ -158,7 +156,7 @@ export default function CategoryEdit() {
 
       const payload = {
         category_name: category.category_name.trim(),
-        status: parseInt(category.status?.toString() || "1"), // ✅ Send as integer
+        status: parseInt(category.status?.toString() || "1"),
         validity: 1,
       };
 
@@ -176,6 +174,7 @@ export default function CategoryEdit() {
         timer: 2000,
         showConfirmButton: false,
         position: "top-end",
+        toast: true,
       });
 
       navigate("/category-list");
@@ -244,6 +243,8 @@ export default function CategoryEdit() {
         text: "Category deleted successfully.",
         timer: 2000,
         showConfirmButton: false,
+        position: "top-end",
+        toast: true,
       });
       navigate("/category-list");
     } catch (error: any) {
@@ -271,7 +272,6 @@ export default function CategoryEdit() {
   }, [id, getAuthToken, navigate]);
 
   const handleBack = useCallback(() => {
-    // Check if there are unsaved changes
     if (JSON.stringify(category) !== JSON.stringify(originalData)) {
       Swal.fire({
         title: "Unsaved Changes",
@@ -294,14 +294,12 @@ export default function CategoryEdit() {
 
   const statusOptions: OptionType[] = [
     { value: "1", label: "Active" },
-    { value: "0", label: "Inactive" }, // ✅ Fixed: Use 0 instead of 2
+    { value: "0", label: "Inactive" },
   ];
 
   const getCurrentStatus = useCallback(() => {
     const statusValue = category?.status?.toString() || "1";
-    return (
-      statusOptions.find((opt) => opt.value === statusValue) || statusOptions[0]
-    );
+    return statusOptions.find((opt) => opt.value === statusValue) || statusOptions[0];
   }, [category, statusOptions]);
 
   // Show loading while checking authentication
@@ -316,7 +314,6 @@ export default function CategoryEdit() {
     );
   }
 
-  // If not authenticated, return null
   if (!isAuthenticated) {
     return null;
   }
@@ -327,13 +324,8 @@ export default function CategoryEdit() {
         <PageBreadcrumb pageTitle="Edit Category" />
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-3">
-            <Loader2
-              className="w-10 h-10 animate-spin text-blue-500"
-              aria-hidden="true"
-            />
-            <p className="text-gray-500 dark:text-gray-400 text-sm">
-              Loading category data...
-            </p>
+            <Loader2 className="w-10 h-10 animate-spin text-blue-500" aria-hidden="true" />
+            <p className="text-gray-500 dark:text-gray-400 text-sm">Loading category data...</p>
           </div>
         </div>
       </div>
@@ -346,10 +338,7 @@ export default function CategoryEdit() {
         <PageBreadcrumb pageTitle="Edit Category" />
         <div className="flex items-center justify-center h-64">
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-8 text-center max-w-md">
-            <AlertCircle
-              className="w-12 h-12 text-red-500 mx-auto mb-3"
-              aria-hidden="true"
-            />
+            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" aria-hidden="true" />
             <h3 className="text-lg font-semibold text-red-700 dark:text-red-400">
               Category Not Found
             </h3>
@@ -358,7 +347,7 @@ export default function CategoryEdit() {
             </p>
             <button
               onClick={handleBack}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             >
               Back to Category List
             </button>
@@ -445,16 +434,13 @@ export default function CategoryEdit() {
                       Created At
                     </Label>
                     <div className="mt-1 px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-600 dark:text-gray-400">
-                      {new Date(category.created_at).toLocaleDateString(
-                        "en-US",
-                        {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        },
-                      )}
+                      {new Date(category.created_at).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </div>
                   </div>
                 )}
@@ -465,7 +451,7 @@ export default function CategoryEdit() {
                 <Button
                   type="button"
                   onClick={handleBack}
-                  className="flex items-center justify-center gap-2 bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 text-white px-6 py-2.5 rounded-lg transition-colors w-full sm:w-auto"
+                  className="flex items-center justify-center gap-2 bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 text-white px-6 py-2.5 rounded-lg transition-colors w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
                   disabled={saving}
                 >
                   <ArrowLeft size={18} aria-hidden="true" />
@@ -474,16 +460,12 @@ export default function CategoryEdit() {
                 <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                   <Button
                     type="submit"
-                    className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg transition-colors w-full sm:w-auto min-w-[140px]"
+                    className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg transition-colors w-full sm:w-auto min-w-[140px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                     disabled={saving}
                   >
                     {saving ? (
                       <>
-                        <Loader2
-                          size={18}
-                          className="animate-spin"
-                          aria-hidden="true"
-                        />
+                        <Loader2 size={18} className="animate-spin" aria-hidden="true" />
                         Saving...
                       </>
                     ) : (
@@ -502,11 +484,7 @@ export default function CategoryEdit() {
           <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
             <div className="flex items-start gap-3">
               <div className="flex-shrink-0 mt-0.5">
-                <CheckCircle
-                  size={20}
-                  className="text-blue-600 dark:text-blue-400"
-                  aria-hidden="true"
-                />
+                <CheckCircle size={20} className="text-blue-600 dark:text-blue-400" aria-hidden="true" />
               </div>
               <div>
                 <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">

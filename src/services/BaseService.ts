@@ -14,26 +14,32 @@ export class BaseService {
   }
 
   async getAll(params?: Record<string, any>) {
-    return this.api.get(this.endpoint, { params });
+    const response = await this.api.get(this.endpoint, { params });
+    return response.data || response;
   }
 
   async getById(id: number | string) {
-    return this.api.get(`${this.endpoint}/${id}`);
+    const response = await this.api.get(`${this.endpoint}/${id}`);
+    return response.data || response;
   }
 
   async create(data: any) {
-    return this.api.post(this.endpoint, data);
+    const response = await this.api.post(this.endpoint, data);
+    return response.data || response;
   }
 
   async update(id: number | string, data: any) {
-    return this.api.put(`${this.endpoint}/${id}`, data);
+    const response = await this.api.put(`${this.endpoint}/${id}`, data);
+    return response.data || response;
   }
 
   async delete(id: number | string) {
-    return this.api.delete(`${this.endpoint}/${id}`);
+    const response = await this.api.delete(`${this.endpoint}/${id}`);
+    return response.data || response;
   }
 
   async restore(id: number | string) {
-    return this.api.post(`${this.endpoint}/${id}/restore`);
+    const response = await this.api.post(`${this.endpoint}/${id}/restore`);
+    return response.data || response;
   }
 }

@@ -1,3 +1,4 @@
+// src/pages/Category/Category.tsx
 import { useState, useCallback, useEffect } from "react";
 import ComponentCard from "../../components/common/ComponentCard";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -8,10 +9,10 @@ import Select from "../../components/form/Select";
 import Button from "../../components/ui/button/Button";
 import axios from "axios";
 import Swal from "sweetalert2";
-import { Loader2, Save, X, CheckCircle, AlertCircle } from "lucide-react";
+import { Loader2, Save, X, CheckCircle, AlertCircle, ArrowLeft } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { API_CONFIG } from "../../config/app";
+import { API_CONFIG } from "../../config/api";
 
 type OptionType = { value: string; label: string };
 
@@ -41,7 +42,7 @@ export default function Category() {
   // Status options with integer values
   const statusOptions: OptionType[] = [
     { value: "1", label: "Active" },
-    { value: "2", label: "Inactive" },
+    { value: "0", label: "Inactive" },
   ];
 
   // Handle input changes
@@ -85,16 +86,13 @@ export default function Category() {
 
   // Get auth token for API requests
   const getAuthToken = useCallback(() => {
-    return (
-      localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
-    );
+    return localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
   }, []);
 
   // Save category
   const handleSave = useCallback(async () => {
     if (!validate()) return;
 
-    // Check authentication before making API call
     if (!isAuthenticated) {
       Swal.fire({
         icon: "warning",
@@ -117,8 +115,6 @@ export default function Category() {
         validity: 1,
       };
 
-      console.log("Sending payload:", payload);
-
       const response = await axios.post(
         `${API_CONFIG.baseURL}/category`,
         payload,
@@ -127,7 +123,7 @@ export default function Category() {
             "Content-Type": "application/json",
             Authorization: token ? `Bearer ${token}` : "",
           },
-        },
+        }
       );
 
       Swal.fire({
@@ -137,6 +133,7 @@ export default function Category() {
         timer: 2000,
         showConfirmButton: false,
         position: "top-end",
+        toast: true,
       });
 
       // Reset form
@@ -148,7 +145,6 @@ export default function Category() {
     } catch (error: any) {
       console.error("Error saving category:", error.response?.data || error);
 
-      // Handle authentication errors
       if (error.response?.status === 401) {
         Swal.fire({
           icon: "error",
@@ -184,8 +180,7 @@ export default function Category() {
 
   // Reset form
   const handleReset = useCallback(() => {
-    const hasData =
-      formData.category_name.trim() || formData.status.value !== "1";
+    const hasData = formData.category_name.trim() || formData.status.value !== "1";
 
     if (!hasData) {
       Swal.fire({
@@ -194,6 +189,8 @@ export default function Category() {
         text: "There is no data to reset.",
         timer: 2000,
         showConfirmButton: false,
+        position: "top-end",
+        toast: true,
       });
       return;
     }
@@ -219,10 +216,16 @@ export default function Category() {
           title: "Form Reset!",
           timer: 1500,
           showConfirmButton: false,
+          position: "top-end",
+          toast: true,
         });
       }
     });
   }, [formData]);
+
+  const handleBack = useCallback(() => {
+    navigate("/category-list");
+  }, [navigate]);
 
   // Show loading while checking authentication
   if (authLoading) {
@@ -236,7 +239,6 @@ export default function Category() {
     );
   }
 
-  // If not authenticated, redirect
   if (!isAuthenticated) {
     return null;
   }
@@ -315,8 +317,17 @@ export default function Category() {
                 <div className="pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row justify-end gap-3">
                   <Button
                     type="button"
-                    onClick={handleReset}
+                    onClick={handleBack}
                     className="flex items-center justify-center gap-2 bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 text-white px-4 sm:px-6 py-2.5 rounded-lg transition-colors w-full sm:w-auto order-2 sm:order-1"
+                    disabled={loading}
+                  >
+                    <ArrowLeft size={18} aria-hidden="true" />
+                    Back to List
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleReset}
+                    className="flex items-center justify-center gap-2 bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 text-white px-4 sm:px-6 py-2.5 rounded-lg transition-colors w-full sm:w-auto order-3 sm:order-2"
                     disabled={loading}
                   >
                     <X size={18} aria-hidden="true" />
@@ -324,16 +335,12 @@ export default function Category() {
                   </Button>
                   <Button
                     type="submit"
-                    className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white px-4 sm:px-6 py-2.5 rounded-lg transition-colors min-w-[120px] w-full sm:w-auto order-1 sm:order-2"
+                    className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white px-4 sm:px-6 py-2.5 rounded-lg transition-colors min-w-[120px] w-full sm:w-auto order-1 sm:order-3"
                     disabled={loading}
                   >
                     {loading ? (
                       <>
-                        <Loader2
-                          size={18}
-                          className="animate-spin"
-                          aria-hidden="true"
-                        />
+                        <Loader2 size={18} className="animate-spin" aria-hidden="true" />
                         Saving...
                       </>
                     ) : (
@@ -352,11 +359,7 @@ export default function Category() {
           <div className="mt-4 sm:mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
             <div className="flex items-start gap-3">
               <div className="flex-shrink-0 mt-0.5">
-                <CheckCircle
-                  size={20}
-                  className="text-blue-600 dark:text-blue-400"
-                  aria-hidden="true"
-                />
+                <CheckCircle size={20} className="text-blue-600 dark:text-blue-400" aria-hidden="true" />
               </div>
               <div>
                 <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">

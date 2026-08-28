@@ -9,6 +9,8 @@ import ComponentCard from "../../components/common/ComponentCard";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import Swal from "sweetalert2";
+import { useAuth } from "../../hooks/useAuth";
+import { API_CONFIG } from "../../config/api";
 import {
   Loader2,
   Save,
@@ -17,7 +19,6 @@ import {
   Package,
   Trash2,
 } from "lucide-react";
-import { API_CONFIG } from "../../config/api";
 
 type OptionType = { value: string; label: string };
 
@@ -47,6 +48,8 @@ interface UnitType {
 export default function ProductEdit() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { isAuthenticated, loading: authLoading } = useAuth();
+
   const [product, setProduct] = useState<ProductType | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
@@ -65,17 +68,38 @@ export default function ProductEdit() {
     [],
   );
 
+  // Check authentication
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      navigate("/signin");
+    }
+  }, [isAuthenticated, authLoading, navigate]);
+
+  // Get auth token
+  const getAuthToken = useCallback(() => {
+    return localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+  }, []);
+
   // Fetch product on mount
   useEffect(() => {
-    if (id) {
+    if (isAuthenticated && id) {
       fetchProduct();
     }
-  }, [id]);
+  }, [isAuthenticated, id]);
 
   const fetchProduct = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${API_CONFIG.baseURL}/api/products/${id}`);
+      const token = getAuthToken();
+
+      const res = await axios.get(
+        `${API_CONFIG.baseURL}/api/products/${id}`,
+        {
+          headers: {
+            Authorization: token ? `Bearer ${token}` : "",
+          },
+        }
+      );
 
       const productData = res.data.products || res.data;
       setProduct(productData);
@@ -96,16 +120,27 @@ export default function ProductEdit() {
         label: unit.unit_name,
       }));
       setUnits(unitOptions);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching product:", error);
+
+      if (error.response?.status === 401) {
+        Swal.fire({
+          icon: "error",
+          title: "Session Expired",
+          text: "Your session has expired. Please login again.",
+          confirmButtonColor: "#3b82f6",
+        }).then(() => {
+          localStorage.removeItem("authToken");
+          sessionStorage.removeItem("authToken");
+          navigate("/signin");
+        });
+        return;
+      }
 
       let errorMessage = "Failed to load product data.";
       if (axios.isAxiosError(error)) {
         if (error.response) {
-          errorMessage =
-            error.response.data?.message ||
-            error.response.statusText ||
-            `Server error: ${error.response.status}`;
+          errorMessage = error.response.data?.message || error.response.statusText || `Server error: ${error.response.status}`;
         } else if (error.request) {
           errorMessage = "Network error - please check your connection";
         }
@@ -120,7 +155,7 @@ export default function ProductEdit() {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, getAuthToken, navigate]);
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -172,31 +207,19 @@ export default function ProductEdit() {
 
     if (!product?.price) {
       newErrors.price = "Price is required";
-    } else if (
-      isNaN(parseFloat(product.price)) ||
-      parseFloat(product.price) <= 0
-    ) {
+    } else if (isNaN(parseFloat(product.price)) || parseFloat(product.price) <= 0) {
       newErrors.price = "Please enter a valid price greater than 0";
     }
 
-    if (
-      product?.stock &&
-      (isNaN(parseFloat(product.stock)) || parseFloat(product.stock) < 0)
-    ) {
+    if (product?.stock && (isNaN(parseFloat(product.stock)) || parseFloat(product.stock) < 0)) {
       newErrors.stock = "Please enter a valid stock quantity (0 or more)";
     }
 
-    if (
-      product?.vat &&
-      (isNaN(parseFloat(product.vat)) || parseFloat(product.vat) < 0)
-    ) {
+    if (product?.vat && (isNaN(parseFloat(product.vat)) || parseFloat(product.vat) < 0)) {
       newErrors.vat = "Please enter a valid VAT percentage (0 or more)";
     }
 
-    if (
-      product?.sd &&
-      (isNaN(parseFloat(product.sd)) || parseFloat(product.sd) < 0)
-    ) {
+    if (product?.sd && (isNaN(parseFloat(product.sd)) || parseFloat(product.sd) < 0)) {
       newErrors.sd = "Please enter a valid SD percentage (0 or more)";
     }
 
@@ -207,8 +230,22 @@ export default function ProductEdit() {
   const handleSave = useCallback(async () => {
     if (!validate() || !product) return;
 
+    if (!isAuthenticated) {
+      Swal.fire({
+        icon: "warning",
+        title: "Not Authenticated",
+        text: "Please login to update product.",
+        confirmButtonColor: "#3b82f6",
+      }).then(() => {
+        navigate("/signin");
+      });
+      return;
+    }
+
     setSaving(true);
     try {
+      const token = getAuthToken();
+
       const payload = {
         product_name: product.product_name.trim(),
         category_id: parseInt(product.category_id),
@@ -220,7 +257,16 @@ export default function ProductEdit() {
         sd: parseFloat(product.sd) || 0,
       };
 
-      await axios.put(`${API_CONFIG.baseURL}/api/products/${id}`, payload);
+      await axios.put(
+        `${API_CONFIG.baseURL}/api/products/${id}`,
+        payload,
+        {
+          headers: {
+            Authorization: token ? `Bearer ${token}` : "",
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       Swal.fire({
         icon: "success",
@@ -229,19 +275,31 @@ export default function ProductEdit() {
         timer: 2000,
         showConfirmButton: false,
         position: "top-end",
+        toast: true,
       });
 
       navigate("/products-list");
     } catch (error: any) {
       console.error("Error updating product:", error);
 
+      if (error.response?.status === 401) {
+        Swal.fire({
+          icon: "error",
+          title: "Session Expired",
+          text: "Your session has expired. Please login again.",
+          confirmButtonColor: "#3b82f6",
+        }).then(() => {
+          localStorage.removeItem("authToken");
+          sessionStorage.removeItem("authToken");
+          navigate("/signin");
+        });
+        return;
+      }
+
       let errorMessage = "Failed to update product!";
       if (axios.isAxiosError(error)) {
         if (error.response) {
-          errorMessage =
-            error.response.data?.message ||
-            error.response.statusText ||
-            `Server error: ${error.response.status}`;
+          errorMessage = error.response.data?.message || error.response.statusText || `Server error: ${error.response.status}`;
         } else if (error.request) {
           errorMessage = "Network error - please check your connection";
         }
@@ -256,7 +314,7 @@ export default function ProductEdit() {
     } finally {
       setSaving(false);
     }
-  }, [product, validate, id, navigate]);
+  }, [product, validate, id, isAuthenticated, navigate, getAuthToken]);
 
   const handleBack = useCallback(() => {
     if (JSON.stringify(product) !== JSON.stringify(originalData)) {
@@ -294,7 +352,16 @@ export default function ProductEdit() {
     if (!result.isConfirmed) return;
 
     try {
-      await axios.delete(`${API_CONFIG.baseURL}/api/products/${id}`);
+      const token = getAuthToken();
+
+      await axios.delete(
+        `${API_CONFIG.baseURL}/api/products/${id}`,
+        {
+          headers: {
+            Authorization: token ? `Bearer ${token}` : "",
+          },
+        }
+      );
 
       Swal.fire({
         icon: "success",
@@ -302,18 +369,31 @@ export default function ProductEdit() {
         text: "Product deleted successfully.",
         timer: 2000,
         showConfirmButton: false,
+        position: "top-end",
+        toast: true,
       });
       navigate("/products-list");
     } catch (error: any) {
       console.error("Error deleting product:", error);
 
+      if (error.response?.status === 401) {
+        Swal.fire({
+          icon: "error",
+          title: "Session Expired",
+          text: "Your session has expired. Please login again.",
+          confirmButtonColor: "#3b82f6",
+        }).then(() => {
+          localStorage.removeItem("authToken");
+          sessionStorage.removeItem("authToken");
+          navigate("/signin");
+        });
+        return;
+      }
+
       let errorMessage = "Failed to delete product.";
       if (axios.isAxiosError(error)) {
         if (error.response) {
-          errorMessage =
-            error.response.data?.message ||
-            error.response.statusText ||
-            `Server error: ${error.response.status}`;
+          errorMessage = error.response.data?.message || error.response.statusText || `Server error: ${error.response.status}`;
         } else if (error.request) {
           errorMessage = "Network error - please check your connection";
         }
@@ -326,14 +406,11 @@ export default function ProductEdit() {
         confirmButtonColor: "#3b82f6",
       });
     }
-  }, [product, id, navigate]);
+  }, [product, id, getAuthToken, navigate]);
 
   // Helper functions
   const getCurrentCategory = useCallback(() => {
-    return (
-      categories.find((c) => c.value === product?.category_id?.toString()) ||
-      null
-    );
+    return categories.find((c) => c.value === product?.category_id?.toString()) || null;
   }, [categories, product]);
 
   const getCurrentUnit = useCallback(() => {
@@ -341,16 +418,25 @@ export default function ProductEdit() {
   }, [units, product]);
 
   const getCurrentProductType = useCallback(() => {
-    return (
-      productTypes.find((t) => t.value === product?.product_type?.toString()) ||
-      null
-    );
+    return productTypes.find((t) => t.value === product?.product_type?.toString()) || null;
   }, [productTypes, product]);
+
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
+          <p className="text-gray-500 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6">
         <PageBreadcrumb pageTitle="Edit Product" />
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-3">
@@ -358,7 +444,7 @@ export default function ProductEdit() {
               className="w-10 h-10 animate-spin text-blue-500"
               aria-hidden="true"
             />
-            <p className="text-gray-500 text-sm">Loading product data...</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">Loading product data...</p>
           </div>
         </div>
       </div>
@@ -368,18 +454,18 @@ export default function ProductEdit() {
   // Not found state
   if (!product) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6">
         <PageBreadcrumb pageTitle="Edit Product" />
         <div className="flex items-center justify-center h-64">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-8 text-center max-w-md">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-8 text-center max-w-md">
             <AlertCircle
               className="w-12 h-12 text-red-500 mx-auto mb-3"
               aria-hidden="true"
             />
-            <h3 className="text-lg font-semibold text-red-700">
+            <h3 className="text-lg font-semibold text-red-700 dark:text-red-400">
               Product Not Found
             </h3>
-            <p className="text-sm text-red-600 mt-1">
+            <p className="text-sm text-red-600 dark:text-red-300 mt-1">
               The product you're looking for doesn't exist.
             </p>
             <button
@@ -395,7 +481,7 @@ export default function ProductEdit() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6">
       <PageMeta
         title={`Edit Product - ${product.product_name} | A&T`}
         description="Edit Product Page"
@@ -410,13 +496,14 @@ export default function ProductEdit() {
                 e.preventDefault();
                 handleSave();
               }}
+              noValidate
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Product Name */}
                 <div className="md:col-span-2">
                   <Label
                     htmlFor="product_name"
-                    className="text-sm font-medium text-gray-700"
+                    className="text-sm font-medium text-gray-700 dark:text-gray-300"
                   >
                     Product Name <span className="text-red-500">*</span>
                   </Label>
@@ -426,18 +513,14 @@ export default function ProductEdit() {
                     value={product.product_name || ""}
                     onChange={handleChange}
                     placeholder="Enter product name"
-                    className={`mt-1 ${errors.product_name ? "border-red-500 focus:ring-red-500" : ""}`}
+                    className={`mt-1 dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:placeholder-gray-400 ${
+                      errors.product_name ? "border-red-500 focus:ring-red-500" : "border-gray-300"
+                    }`}
                     disabled={saving}
                     autoFocus
-                    aria-describedby={
-                      errors.product_name ? "product_name-error" : undefined
-                    }
                   />
                   {errors.product_name && (
-                    <p
-                      id="product_name-error"
-                      className="mt-1 text-sm text-red-600 flex items-center gap-1"
-                    >
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
                       <AlertCircle size={14} aria-hidden="true" />
                       {errors.product_name}
                     </p>
@@ -446,7 +529,7 @@ export default function ProductEdit() {
 
                 {/* Category */}
                 <div>
-                  <Label className="text-sm font-medium text-gray-700">
+                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Category <span className="text-red-500">*</span>
                   </Label>
                   <Select
@@ -458,7 +541,7 @@ export default function ProductEdit() {
                     isDisabled={saving}
                   />
                   {errors.category_id && (
-                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
                       <AlertCircle size={14} aria-hidden="true" />
                       {errors.category_id}
                     </p>
@@ -467,7 +550,7 @@ export default function ProductEdit() {
 
                 {/* Product Type */}
                 <div>
-                  <Label className="text-sm font-medium text-gray-700">
+                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Product Type <span className="text-red-500">*</span>
                   </Label>
                   <Select
@@ -479,7 +562,7 @@ export default function ProductEdit() {
                     isDisabled={saving}
                   />
                   {errors.product_type && (
-                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
                       <AlertCircle size={14} aria-hidden="true" />
                       {errors.product_type}
                     </p>
@@ -490,7 +573,7 @@ export default function ProductEdit() {
                 <div>
                   <Label
                     htmlFor="price"
-                    className="text-sm font-medium text-gray-700"
+                    className="text-sm font-medium text-gray-700 dark:text-gray-300"
                   >
                     Price <span className="text-red-500">*</span>
                   </Label>
@@ -500,17 +583,15 @@ export default function ProductEdit() {
                     value={product.price || ""}
                     onChange={handleChange}
                     placeholder="Enter price"
-                    className={`mt-1 ${errors.price ? "border-red-500 focus:ring-red-500" : ""}`}
+                    className={`mt-1 dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:placeholder-gray-400 ${
+                      errors.price ? "border-red-500 focus:ring-red-500" : "border-gray-300"
+                    }`}
                     disabled={saving}
                     step="0.01"
                     min="0"
-                    aria-describedby={errors.price ? "price-error" : undefined}
                   />
                   {errors.price && (
-                    <p
-                      id="price-error"
-                      className="mt-1 text-sm text-red-600 flex items-center gap-1"
-                    >
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
                       <AlertCircle size={14} aria-hidden="true" />
                       {errors.price}
                     </p>
@@ -519,7 +600,7 @@ export default function ProductEdit() {
 
                 {/* Unit */}
                 <div>
-                  <Label className="text-sm font-medium text-gray-700">
+                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Unit <span className="text-red-500">*</span>
                   </Label>
                   <Select
@@ -531,7 +612,7 @@ export default function ProductEdit() {
                     isDisabled={saving}
                   />
                   {errors.unit && (
-                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
                       <AlertCircle size={14} aria-hidden="true" />
                       {errors.unit}
                     </p>
@@ -542,7 +623,7 @@ export default function ProductEdit() {
                 <div>
                   <Label
                     htmlFor="stock"
-                    className="text-sm font-medium text-gray-700"
+                    className="text-sm font-medium text-gray-700 dark:text-gray-300"
                   >
                     Stock Quantity
                   </Label>
@@ -552,17 +633,15 @@ export default function ProductEdit() {
                     value={product.stock || ""}
                     onChange={handleChange}
                     placeholder="Enter stock quantity"
-                    className={`mt-1 ${errors.stock ? "border-red-500 focus:ring-red-500" : ""}`}
+                    className={`mt-1 dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:placeholder-gray-400 ${
+                      errors.stock ? "border-red-500 focus:ring-red-500" : "border-gray-300"
+                    }`}
                     disabled={saving}
                     min="0"
                     step="1"
-                    aria-describedby={errors.stock ? "stock-error" : undefined}
                   />
                   {errors.stock && (
-                    <p
-                      id="stock-error"
-                      className="mt-1 text-sm text-red-600 flex items-center gap-1"
-                    >
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
                       <AlertCircle size={14} aria-hidden="true" />
                       {errors.stock}
                     </p>
@@ -573,7 +652,7 @@ export default function ProductEdit() {
                 <div>
                   <Label
                     htmlFor="vat"
-                    className="text-sm font-medium text-gray-700"
+                    className="text-sm font-medium text-gray-700 dark:text-gray-300"
                   >
                     VAT (%)
                   </Label>
@@ -583,18 +662,16 @@ export default function ProductEdit() {
                     value={product.vat || ""}
                     onChange={handleChange}
                     placeholder="Enter VAT percentage"
-                    className={`mt-1 ${errors.vat ? "border-red-500 focus:ring-red-500" : ""}`}
+                    className={`mt-1 dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:placeholder-gray-400 ${
+                      errors.vat ? "border-red-500 focus:ring-red-500" : "border-gray-300"
+                    }`}
                     disabled={saving}
                     step="0.01"
                     min="0"
                     max="100"
-                    aria-describedby={errors.vat ? "vat-error" : undefined}
                   />
                   {errors.vat && (
-                    <p
-                      id="vat-error"
-                      className="mt-1 text-sm text-red-600 flex items-center gap-1"
-                    >
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
                       <AlertCircle size={14} aria-hidden="true" />
                       {errors.vat}
                     </p>
@@ -605,7 +682,7 @@ export default function ProductEdit() {
                 <div>
                   <Label
                     htmlFor="sd"
-                    className="text-sm font-medium text-gray-700"
+                    className="text-sm font-medium text-gray-700 dark:text-gray-300"
                   >
                     SD (%)
                   </Label>
@@ -615,18 +692,16 @@ export default function ProductEdit() {
                     value={product.sd || ""}
                     onChange={handleChange}
                     placeholder="Enter SD percentage"
-                    className={`mt-1 ${errors.sd ? "border-red-500 focus:ring-red-500" : ""}`}
+                    className={`mt-1 dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:placeholder-gray-400 ${
+                      errors.sd ? "border-red-500 focus:ring-red-500" : "border-gray-300"
+                    }`}
                     disabled={saving}
                     step="0.01"
                     min="0"
                     max="100"
-                    aria-describedby={errors.sd ? "sd-error" : undefined}
                   />
                   {errors.sd && (
-                    <p
-                      id="sd-error"
-                      className="mt-1 text-sm text-red-600 flex items-center gap-1"
-                    >
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
                       <AlertCircle size={14} aria-hidden="true" />
                       {errors.sd}
                     </p>
@@ -635,11 +710,11 @@ export default function ProductEdit() {
               </div>
 
               {/* Action Buttons */}
-              <div className="mt-8 pt-4 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-3">
+              <div className="mt-8 pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row justify-between items-center gap-3">
                 <Button
                   type="button"
                   onClick={handleBack}
-                  className="flex items-center justify-center gap-2 bg-gray-500 hover:bg-gray-600 text-white px-6 py-2.5 rounded-lg transition-colors w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                  className="flex items-center justify-center gap-2 bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 text-white px-6 py-2.5 rounded-lg transition-colors w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
                   disabled={saving}
                 >
                   <ArrowLeft size={18} aria-hidden="true" />
@@ -648,7 +723,7 @@ export default function ProductEdit() {
                 <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                   <Button
                     type="submit"
-                    className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg transition-colors w-full sm:w-auto min-w-[140px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg transition-colors w-full sm:w-auto min-w-[140px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                     disabled={saving}
                   >
                     {saving ? (
@@ -673,13 +748,13 @@ export default function ProductEdit() {
           </ComponentCard>
 
           {/* Delete Option */}
-          <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="mt-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div>
-                <h4 className="text-sm font-medium text-red-800">
+                <h4 className="text-sm font-medium text-red-800 dark:text-red-400">
                   Danger Zone
                 </h4>
-                <p className="text-xs text-red-600 mt-0.5">
+                <p className="text-xs text-red-600 dark:text-red-300 mt-0.5">
                   This action cannot be undone
                 </p>
               </div>
@@ -694,18 +769,18 @@ export default function ProductEdit() {
           </div>
 
           {/* Quick Tips */}
-          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
             <div className="flex items-start gap-3">
               <div className="flex-shrink-0 mt-0.5">
                 <Package
                   size={20}
-                  className="text-blue-600"
+                  className="text-blue-600 dark:text-blue-400"
                   aria-hidden="true"
                 />
               </div>
               <div>
-                <h4 className="text-sm font-medium text-blue-800">Edit Tips</h4>
-                <ul className="mt-1 text-sm text-blue-700 space-y-1">
+                <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">Edit Tips</h4>
+                <ul className="mt-1 text-sm text-blue-700 dark:text-blue-400 space-y-1">
                   <li>• Update product information as needed</li>
                   <li>• Price and stock changes affect inventory</li>
                   <li>• VAT and SD percentages are applied to sales</li>

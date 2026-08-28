@@ -1,3 +1,4 @@
+// src/pages/Category/CategoryList.tsx
 import ComponentCard from "../../components/common/ComponentCard";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
@@ -39,10 +40,7 @@ export default function CategoryList() {
   const [categories, setCategories] = useState<CategoryType[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [filteredCategories, setFilteredCategories] = useState<CategoryType[]>(
-    [],
-  );
-  const [error, setError] = useState<string | null>(null);
+  const [filteredCategories, setFilteredCategories] = useState<CategoryType[]>([]);
 
   // Check authentication
   useEffect(() => {
@@ -53,13 +51,18 @@ export default function CategoryList() {
 
   // Filter categories when search term changes
   useEffect(() => {
+    if (!Array.isArray(categories)) {
+      setFilteredCategories([]);
+      return;
+    }
+
     if (searchTerm.trim() === "") {
       setFilteredCategories(categories);
     } else {
       const term = searchTerm.toLowerCase().trim();
       const filtered = categories.filter(
         (category) =>
-          category.category_name.toLowerCase().includes(term) ||
+          category.category_name?.toLowerCase().includes(term) ||
           category.id.toString().includes(term),
       );
       setFilteredCategories(filtered);
@@ -68,20 +71,13 @@ export default function CategoryList() {
 
   // Get auth token
   const getAuthToken = useCallback(() => {
-    return (
-      localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
-    );
+    return localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
   }, []);
 
   const fetchCategories = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
       const token = getAuthToken();
-
-      console.log("🔍 Fetching categories...");
-      console.log("📡 API URL:", `${API_CONFIG.baseURL}/category`);
-      console.log("🔑 Token:", token ? "Present" : "Missing");
 
       const response = await axios.get(`${API_CONFIG.baseURL}/category`, {
         headers: {
@@ -90,103 +86,51 @@ export default function CategoryList() {
         },
       });
 
-      console.log("📥 API Response:", response.data);
-
-      // ✅ Handle different response structures
       let categoriesData = [];
 
-      // Check if response.data is an array directly
       if (Array.isArray(response.data)) {
         categoriesData = response.data;
-      }
-      // Check if response.data has a data property that is an array
-      else if (
-        response.data &&
-        response.data.data &&
-        Array.isArray(response.data.data)
-      ) {
+      } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
         categoriesData = response.data.data;
-      }
-      // Check if response.data has a categories property
-      else if (
-        response.data &&
-        response.data.categories &&
-        Array.isArray(response.data.categories)
-      ) {
+      } else if (response.data && response.data.categories && Array.isArray(response.data.categories)) {
         categoriesData = response.data.categories;
-      }
-      // Check if response.data has a status and data property
-      else if (
-        response.data &&
-        response.data.status === "success" &&
-        response.data.data
-      ) {
+      } else if (response.data && response.data.status === "success" && response.data.data) {
         categoriesData = response.data.data;
-      }
-      // If nothing matches, try to extract any array from the response
-      else {
-        // Try to find any array in the response
-        const values = Object.values(response.data);
+      } else {
+        const values = Object.values(response.data || {});
         const arrayValue = values.find((v) => Array.isArray(v));
         if (arrayValue) {
           categoriesData = arrayValue;
-        } else {
-          console.warn("⚠️ No array found in response:", response.data);
-          categoriesData = [];
         }
       }
-
-      console.log("✅ Processed categories data:", categoriesData);
 
       setCategories(categoriesData);
       setFilteredCategories(categoriesData);
-
-      if (categoriesData.length === 0) {
-        console.log("ℹ️ No categories found in the response");
-      }
     } catch (error: any) {
-      console.error("❌ Error fetching categories:", error);
+      console.error("Error fetching categories:", error);
 
-      let errorMessage = "Failed to load categories.";
-
-      if (error.response) {
-        console.error("Response status:", error.response.status);
-        console.error("Response data:", error.response.data);
-
-        if (error.response.status === 401) {
-          errorMessage = "Your session has expired. Please login again.";
-          Swal.fire({
-            icon: "error",
-            title: "Session Expired",
-            text: errorMessage,
-            confirmButtonColor: "#3b82f6",
-          }).then(() => {
-            localStorage.removeItem("authToken");
-            sessionStorage.removeItem("authToken");
-            navigate("/signin");
-          });
-          return;
-        } else if (error.response.status === 404) {
-          errorMessage = "API endpoint not found. Please check the URL.";
-        } else if (error.response.status === 500) {
-          errorMessage = "Server error. Please try again later.";
-        } else if (error.response.data?.message) {
-          errorMessage = error.response.data.message;
-        }
-      } else if (error.request) {
-        errorMessage = "No response from server. Please check your connection.";
-      } else {
-        errorMessage = error.message || "Failed to load categories.";
+      if (error.response?.status === 401) {
+        Swal.fire({
+          icon: "error",
+          title: "Session Expired",
+          text: "Your session has expired. Please login again.",
+          confirmButtonColor: "#3b82f6",
+        }).then(() => {
+          localStorage.removeItem("authToken");
+          sessionStorage.removeItem("authToken");
+          navigate("/signin");
+        });
+        return;
       }
-
-      setError(errorMessage);
 
       Swal.fire({
         icon: "error",
         title: "Error!",
-        text: errorMessage,
+        text: error.response?.data?.message || "Failed to load categories.",
         confirmButtonColor: "#3b82f6",
       });
+      setCategories([]);
+      setFilteredCategories([]);
     } finally {
       setLoading(false);
     }
@@ -198,82 +142,138 @@ export default function CategoryList() {
     }
   }, [isAuthenticated, fetchCategories]);
 
-  const handleEdit = useCallback(
-    (id: number) => {
-      navigate(`/category-edit/${id}`);
-    },
-    [navigate],
-  );
+  const handleEdit = useCallback((id: number) => {
+    navigate(`/category-edit/${id}`);
+  }, [navigate]);
 
-  const handleView = useCallback(
-    (id: number) => {
-      navigate(`/category/${id}`);
-    },
-    [navigate],
-  );
+  const handleView = useCallback((id: number) => {
+    navigate(`/category/${id}`);
+  }, [navigate]);
 
-  const handleDelete = useCallback(
-    async (id: number, categoryName: string) => {
-      const result = await Swal.fire({
-        title: "Delete Category?",
-        text: `Are you sure you want to delete "${categoryName}"?`,
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonColor: "#ef4444",
-        cancelButtonColor: "#6b7280",
-        confirmButtonText: "Yes, delete it",
-        cancelButtonText: "Cancel",
+  const handleDelete = useCallback(async (id: number, categoryName: string) => {
+    const result = await Swal.fire({
+      title: "Delete Category?",
+      text: `Are you sure you want to delete "${categoryName}"?`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Yes, delete it",
+      cancelButtonText: "Cancel",
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const token = getAuthToken();
+
+      await axios.delete(`${API_CONFIG.baseURL}/category/${id}`, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+        },
       });
 
-      if (!result.isConfirmed) return;
+      setCategories((prev) => prev.filter((c) => c.id !== id));
+      setFilteredCategories((prev) => prev.filter((c) => c.id !== id));
 
-      try {
-        const token = getAuthToken();
+      Swal.fire({
+        icon: "success",
+        title: "Deleted!",
+        text: "Category deleted successfully.",
+        timer: 2000,
+        showConfirmButton: false,
+        position: "top-end",
+        toast: true,
+      });
+    } catch (error: any) {
+      console.error("Error deleting category:", error);
 
-        await axios.delete(`${API_CONFIG.baseURL}/category/${id}`, {
+      if (error.response?.status === 401) {
+        Swal.fire({
+          icon: "error",
+          title: "Session Expired",
+          text: "Your session has expired. Please login again.",
+          confirmButtonColor: "#3b82f6",
+        }).then(() => {
+          localStorage.removeItem("authToken");
+          sessionStorage.removeItem("authToken");
+          navigate("/signin");
+        });
+        return;
+      }
+
+      Swal.fire({
+        icon: "error",
+        title: "Delete Failed!",
+        text: error.response?.data?.message || "Failed to delete category.",
+        confirmButtonColor: "#3b82f6",
+      });
+    }
+  }, [getAuthToken, navigate]);
+
+  const handleRestore = useCallback(async (id: number, categoryName: string) => {
+    const result = await Swal.fire({
+      title: "Restore Category?",
+      text: `Are you sure you want to restore "${categoryName}"?`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#3b82f6",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Yes, restore",
+      cancelButtonText: "Cancel",
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const token = getAuthToken();
+
+      await axios.post(
+        `${API_CONFIG.baseURL}/category/${id}/restore`,
+        {},
+        {
           headers: {
             Authorization: token ? `Bearer ${token}` : "",
           },
-        });
-
-        // Remove the deleted category from the local state
-        setCategories((prev) => prev.filter((c) => c.id !== id));
-        setFilteredCategories((prev) => prev.filter((c) => c.id !== id));
-
-        Swal.fire({
-          icon: "success",
-          title: "Deleted!",
-          text: "Category deleted successfully.",
-          timer: 2000,
-          showConfirmButton: false,
-        });
-      } catch (error: any) {
-        console.error("Error deleting category:", error);
-
-        if (error.response?.status === 401) {
-          Swal.fire({
-            icon: "error",
-            title: "Session Expired",
-            text: "Your session has expired. Please login again.",
-            confirmButtonColor: "#3b82f6",
-          }).then(() => {
-            localStorage.removeItem("authToken");
-            sessionStorage.removeItem("authToken");
-            navigate("/signin");
-          });
-          return;
         }
+      );
 
+      fetchCategories();
+
+      Swal.fire({
+        icon: "success",
+        title: "Restored!",
+        text: "Category restored successfully.",
+        timer: 2000,
+        showConfirmButton: false,
+        position: "top-end",
+        toast: true,
+      });
+    } catch (error: any) {
+      console.error("Error restoring category:", error);
+
+      if (error.response?.status === 401) {
         Swal.fire({
           icon: "error",
-          title: "Delete Failed!",
-          text: error.response?.data?.message || "Failed to delete category.",
+          title: "Session Expired",
+          text: "Your session has expired. Please login again.",
           confirmButtonColor: "#3b82f6",
+        }).then(() => {
+          localStorage.removeItem("authToken");
+          sessionStorage.removeItem("authToken");
+          navigate("/signin");
         });
+        return;
       }
-    },
-    [getAuthToken, navigate],
-  );
+
+      Swal.fire({
+        icon: "error",
+        title: "Restore Failed!",
+        text: error.response?.data?.message || "Failed to restore category.",
+        confirmButtonColor: "#3b82f6",
+      });
+    }
+  }, [getAuthToken, navigate, fetchCategories]);
 
   const getStatusBadge = useCallback((status: string | number) => {
     const statusValue = status?.toString() || "1";
@@ -313,7 +313,6 @@ export default function CategoryList() {
     );
   }
 
-  // If not authenticated, return null (will redirect via useEffect)
   if (!isAuthenticated) {
     return null;
   }
@@ -324,7 +323,7 @@ export default function CategoryList() {
   ).length;
 
   const inactiveCount = categories.filter(
-    (c) => c.status?.toString() === "2" || c.status === "inactive",
+    (c) => c.status?.toString() === "0" || c.status === "inactive",
   ).length;
 
   return (
@@ -358,11 +357,7 @@ export default function CategoryList() {
                 disabled={loading}
                 aria-label="Refresh categories"
               >
-                <RefreshCw
-                  size={16}
-                  className={loading ? "animate-spin" : ""}
-                  aria-hidden="true"
-                />
+                <RefreshCw size={16} className={loading ? "animate-spin" : ""} aria-hidden="true" />
                 Refresh
               </button>
               <button
@@ -379,71 +374,47 @@ export default function CategoryList() {
           <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
             <div className="max-w-full overflow-x-auto">
               <Table>
-                {/* Table Header */}
                 <TableHeader>
                   <TableRow className="bg-gray-50 dark:bg-gray-700">
-                    <TableCell
-                      isHeader
-                      className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-                    >
+                    <TableCell isHeader className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       SL
                     </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-                    >
+                    <TableCell isHeader className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Category Name
                     </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-                    >
+                    <TableCell isHeader className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Status
                     </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-                    >
+                    <TableCell isHeader className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Created At
                     </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-                    >
+                    <TableCell isHeader className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Actions
                     </TableCell>
                   </TableRow>
                 </TableHeader>
 
-                {/* Table Body */}
                 <TableBody className="divide-y divide-gray-100 dark:divide-gray-700">
                   {loading ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center py-8">
                         <div className="flex items-center justify-center gap-2">
-                          <Loader2
-                            className="w-5 h-5 animate-spin text-blue-500"
-                            aria-hidden="true"
-                          />
-                          <span className="text-gray-500 dark:text-gray-400">
-                            Loading categories...
-                          </span>
+                          <Loader2 className="w-5 h-5 animate-spin text-blue-500" aria-hidden="true" />
+                          <span className="text-gray-500 dark:text-gray-400">Loading categories...</span>
                         </div>
                       </TableCell>
                     </TableRow>
-                  ) : filteredCategories.length === 0 ? (
+                  ) : !Array.isArray(filteredCategories) || filteredCategories.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center py-8">
                         <div className="flex flex-col items-center gap-2">
                           <p className="text-gray-500 dark:text-gray-400">
-                            {searchTerm
-                              ? "No categories match your search"
-                              : "No categories found"}
+                            {searchTerm ? "No categories match your search" : "No categories found"}
                           </p>
                           {searchTerm && (
                             <button
                               onClick={handleClearSearch}
-                              className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                              className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1"
                             >
                               Clear search
                             </button>
@@ -462,10 +433,7 @@ export default function CategoryList() {
                     </TableRow>
                   ) : (
                     filteredCategories.map((category, index) => (
-                      <TableRow
-                        key={category.id}
-                        className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                      >
+                      <TableRow key={category.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                         <TableCell className="px-4 py-3 text-center text-gray-500 dark:text-gray-400">
                           {index + 1}
                         </TableCell>
@@ -479,14 +447,11 @@ export default function CategoryList() {
                         </TableCell>
                         <TableCell className="px-4 py-3 text-center text-sm text-gray-500 dark:text-gray-400">
                           {category.created_at
-                            ? new Date(category.created_at).toLocaleDateString(
-                                "en-US",
-                                {
-                                  year: "numeric",
-                                  month: "short",
-                                  day: "numeric",
-                                },
-                              )
+                            ? new Date(category.created_at).toLocaleDateString("en-US", {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                              })
                             : "-"}
                         </TableCell>
                         <TableCell className="px-4 py-3 text-center">
@@ -507,19 +472,25 @@ export default function CategoryList() {
                             >
                               <Edit size={18} aria-hidden="true" />
                             </button>
-                            <button
-                              className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
-                              onClick={() =>
-                                handleDelete(
-                                  category.id,
-                                  category.category_name,
-                                )
-                              }
-                              title="Delete Category"
-                              aria-label={`Delete ${category.category_name}`}
-                            >
-                              <Trash2 size={18} aria-hidden="true" />
-                            </button>
+                            {category.status?.toString() === "0" || category.status === "inactive" ? (
+                              <button
+                                onClick={() => handleRestore(category.id, category.category_name)}
+                                className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-green-500"
+                                title="Restore Category"
+                                aria-label={`Restore ${category.category_name}`}
+                              >
+                                <RefreshCw size={18} aria-hidden="true" />
+                              </button>
+                            ) : (
+                              <button
+                                className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
+                                onClick={() => handleDelete(category.id, category.category_name)}
+                                title="Delete Category"
+                                aria-label={`Delete ${category.category_name}`}
+                              >
+                                <Trash2 size={18} aria-hidden="true" />
+                              </button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -531,24 +502,17 @@ export default function CategoryList() {
           </div>
 
           {/* Footer */}
-          {filteredCategories.length > 0 && (
+          {Array.isArray(filteredCategories) && filteredCategories.length > 0 && (
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mt-4">
               <span>
-                Showing {filteredCategories.length} of {categories.length}{" "}
-                categories
+                Showing {filteredCategories.length} of {categories.length} categories
               </span>
               <div className="flex gap-4">
                 <span>
-                  Active:{" "}
-                  <strong className="text-green-600 dark:text-green-400">
-                    {activeCount}
-                  </strong>
+                  Active: <strong className="text-green-600 dark:text-green-400">{activeCount}</strong>
                 </span>
                 <span>
-                  Inactive:{" "}
-                  <strong className="text-red-600 dark:text-red-400">
-                    {inactiveCount}
-                  </strong>
+                  Inactive: <strong className="text-red-600 dark:text-red-400">{inactiveCount}</strong>
                 </span>
               </div>
             </div>
