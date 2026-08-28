@@ -74,6 +74,8 @@ import Images from "./pages/UiElements/Images";
 import Videos from "./pages/UiElements/Videos";
 import LineChart from "./pages/Charts/LineChart";
 import BarChart from "./pages/Charts/BarChart";
+import FoodTypeList from "./pages/FoodType/FoodTypeList";
+import FoodTypeForm from "./pages/FoodType/FoodTypeForm";
 
 export default function App() {
   return (
@@ -127,6 +129,12 @@ export default function App() {
               <Route path="/outlets/create" element={<OutletForm />} />
               <Route path="/outlets/edit/:id" element={<OutletForm />} />
               <Route path="/outlets/:id" element={<OutletForm />} />
+
+
+              <Route path="/food-types" element={<FoodTypeList />} />
+              <Route path="/food-types/create" element={<FoodTypeForm />} />
+              <Route path="/food-types/edit/:id" element={<FoodTypeForm />} />
+              <Route path="/food-types/:id" element={<FoodTypeForm />} />
 
               {/* Company Routes */}
               <Route path="/companies" element={<CompanyList />} />

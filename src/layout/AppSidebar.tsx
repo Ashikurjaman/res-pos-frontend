@@ -128,6 +128,10 @@ const AppSidebar: React.FC = () => {
       subItems: [
         { name: "Profile", path: "/profile" },
         { name: "Calendar", path: "/calendar" },
+        {
+          name: "Food Types",
+          path: "/food-types",
+        },
       ],
     },
   ];
