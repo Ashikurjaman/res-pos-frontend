@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import FoodTypeService from "../../services/FoodTypeService";
-import { FoodType } from "../../types/foodType";
+import { FoodType } from "../../type/foodType";
 import Swal from "sweetalert2";
 import {
   Plus,

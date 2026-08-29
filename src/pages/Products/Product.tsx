@@ -24,8 +24,6 @@ import {
 
 type OptionType = { value: string; label: string };
 
-// src/pages/Products/Product.tsx
-
 interface FormData {
   product_name: string;
   category_id: number;
@@ -42,7 +40,7 @@ interface FormData {
   scharge: string;
   opening_balance: string;
   supplier_id: number[];
-  food_type_id: number; // ✅ Changed from food_type to food_type_id
+  food_type_id: number; // ✅ Use food_type_id
   outlet_id: number;
   product_image: File | null;
 }
@@ -67,7 +65,7 @@ export default function Product() {
     scharge: "0",
     opening_balance: "0",
     supplier_id: [],
-    food_type: 0,
+    food_type_id: 0, // ✅ Changed from food_type to food_type_id
     outlet_id: 1,
     product_image: null,
   });
@@ -207,11 +205,24 @@ export default function Product() {
   );
 
   // Handle Multi Select changes
+  // src/pages/Products/Product.tsx
+  // Update the handleMultiSelectChange function
+
+  // Handle Multi Select changes
   const handleMultiSelectChange = useCallback(
-    (field: keyof FormData, values: OptionType[]) => {
+    (field: keyof FormData, values: OptionType[] | OptionType | null) => {
+      // ✅ Ensure values is always an array
+      let valueArray: OptionType[] = [];
+
+      if (Array.isArray(values)) {
+        valueArray = values;
+      } else if (values) {
+        valueArray = [values];
+      }
+
       setFormData((prev) => ({
         ...prev,
-        [field]: values.map((v) => parseInt(v.value)),
+        [field]: valueArray.map((v) => parseInt(v.value)),
       }));
       if (errors[field]) {
         setErrors((prev) => ({ ...prev, [field]: "" }));
@@ -303,6 +314,8 @@ export default function Product() {
               formDataObj.append("supplier_id[]", id.toString());
             });
           }
+        } else if (key === "food_type_id" && value !== null && value !== undefined && value !== 0) {
+          formDataObj.append(key, value.toString());
         } else if (value !== null && value !== undefined && value !== "") {
           formDataObj.append(key, value.toString());
         }
@@ -337,7 +350,7 @@ export default function Product() {
         scharge: "0",
         opening_balance: "0",
         supplier_id: [],
-        food_type: 0,
+        food_type_id: 0, // ✅ Changed from food_type to food_type_id
         outlet_id: 1,
         product_image: null,
       });
@@ -417,7 +430,7 @@ export default function Product() {
           scharge: "0",
           opening_balance: "0",
           supplier_id: [],
-          food_type: 0,
+          food_type_id: 0, // ✅ Changed from food_type to food_type_id
           outlet_id: 1,
           product_image: null,
         });
@@ -860,22 +873,22 @@ export default function Product() {
                     }
                     value={
                       createData?.food_types?.find(
-                        (f) => f.id === formData.food_type_id, // ✅ Use food_type_id
+                        (f) => f.id === formData.food_type_id,
                       )
                         ? {
-                            value: formData.food_type_id.toString(), // ✅ Use food_type_id
+                            value: formData.food_type_id.toString(),
                             label:
                               createData.food_types.find(
-                                (f) => f.id === formData.food_type_id, // ✅ Use food_type_id
+                                (f) => f.id === formData.food_type_id,
                               )?.type_name ||
                               createData.food_types.find(
-                                (f) => f.id === formData.food_type_id, // ✅ Use food_type_id
+                                (f) => f.id === formData.food_type_id,
                               )?.name ||
                               "",
                           }
                         : null
                     }
-                    onChange={(val) => handleSelectChange("food_type_id", val)} // ✅ Use food_type_id
+                    onChange={(val) => handleSelectChange("food_type_id", val)}
                     className="w-full"
                     isDisabled={loading}
                     placeholder="Select food type"

@@ -25,30 +25,56 @@ import Swal from "sweetalert2";
 import { useAuth } from "../../hooks/useAuth";
 import { API_CONFIG } from "../../config/api";
 
+// Updated types to match your API response
 type ProductType = {
   id: number;
+  entrydate: string;
   product_name: string;
-  category_id: string;
-  product_type: string;
-  price: string;
   product_code: string;
-  unit: string;
-  vat: string;
-  sd: string;
-  status?: number;
-  validity?: number;
-  created_at?: string;
-  updated_at?: string;
-};
-
-type CategoryType = {
-  id: number;
-  category_name: string;
-};
-
-type UnitType = {
-  id: number;
-  unit_name: string;
+  cost_price: string;
+  pur_price: string;
+  last_price: string | null;
+  previous_price: string | null;
+  avg_price: string;
+  sale_price: string;
+  expire: string | null;
+  category_id: number;
+  unit_id: number;
+  mfExStatus: string | null;
+  extra_status: string | null;
+  prdbelowrange: string | null;
+  user_id: number;
+  dis_status: number;
+  vat_rate: number | string;
+  sd_rate: number | string;
+  scharge: string;
+  product_type: number | string;
+  product_image: string | null;
+  imagepath: string | null;
+  opening_balance: string;
+  supplier_id: string;
+  food_type_id: number;
+  status: number;
+  validity: number;
+  created_at: string;
+  updated_at: string;
+  // Nested objects from API
+  category?: {
+    id: number;
+    category_name: string;
+    status: number;
+  };
+  unit?: {
+    id: number;
+    unit_name: string;
+    status: number;
+  };
+  food_type?: {
+    id: number;
+    type_name: string;
+    onlinestatus: number;
+  };
+  suppliers?: any[];
 };
 
 export default function ProductList() {
@@ -56,8 +82,6 @@ export default function ProductList() {
   const navigate = useNavigate();
 
   const [products, setProducts] = useState<ProductType[]>([]);
-  const [categories, setCategories] = useState<CategoryType[]>([]);
-  const [units, setUnits] = useState<UnitType[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [filteredProducts, setFilteredProducts] = useState<ProductType[]>([]);
@@ -104,12 +128,31 @@ export default function ProductList() {
 
     if (selectedCategory) {
       filtered = filtered.filter(
-        (product) => product.category_id === selectedCategory,
+        (product) => product.category?.id?.toString() === selectedCategory,
       );
     }
 
     setFilteredProducts(filtered);
   }, [searchTerm, selectedCategory, products]);
+
+  // Get unique categories for filter
+  const uniqueCategories = useMemo(() => {
+    if (!Array.isArray(products)) return [];
+
+    const categoryMap = new Map();
+    products.forEach((product) => {
+      if (product.category) {
+        const id = product.category.id.toString();
+        if (!categoryMap.has(id)) {
+          categoryMap.set(id, {
+            id: id,
+            name: product.category.category_name,
+          });
+        }
+      }
+    });
+    return Array.from(categoryMap.values());
+  }, [products]);
 
   const fetchProducts = useCallback(async () => {
     try {
@@ -122,33 +165,28 @@ export default function ProductList() {
         },
       });
 
-      // Handle different response structures
-      let productsData = [];
-      let categoriesData = [];
-      let unitsData = [];
+      console.log("API Response:", res.data);
 
-      if (res.data && res.data.products) {
-        productsData = res.data.products.data || res.data.products || [];
-        categoriesData = res.data.categories || [];
-        unitsData = res.data.units || [];
-      } else if (res.data && res.data.data) {
-        productsData = res.data.data.products || res.data.data || [];
-        categoriesData = res.data.data.categories || [];
-        unitsData = res.data.data.units || [];
+      let productsData: ProductType[] = [];
+
+      // Handle your API response structure
+      if (res.data?.status === "success" && Array.isArray(res.data?.data)) {
+        productsData = res.data.data;
       } else if (Array.isArray(res.data)) {
         productsData = res.data;
+      } else if (res.data?.data && Array.isArray(res.data.data)) {
+        productsData = res.data.data;
       } else {
-        // Try to extract from response
+        // Try to find array in response
         const values = Object.values(res.data || {});
         const arrayValue = values.find((v) => Array.isArray(v));
         if (arrayValue) {
-          productsData = arrayValue;
+          productsData = arrayValue as ProductType[];
         }
       }
 
+      console.log("Extracted products:", productsData);
       setProducts(productsData);
-      setCategories(categoriesData);
-      setUnits(unitsData);
       setFilteredProducts(productsData);
     } catch (error: any) {
       console.error("Error fetching products:", error);
@@ -224,7 +262,7 @@ export default function ProductList() {
       try {
         const token = getAuthToken();
 
-        await axios.delete(`${API_CONFIG.baseURL}/api/products/${id}`, {
+        await axios.delete(`${API_CONFIG.baseURL}/products/${id}`, {
           headers: {
             Authorization: token ? `Bearer ${token}` : "",
           },
@@ -301,7 +339,7 @@ export default function ProductList() {
         const token = getAuthToken();
 
         await axios.post(
-          `${API_CONFIG.baseURL}/api/products/${id}/restore`,
+          `${API_CONFIG.baseURL}/products/${id}/restore`,
           {},
           {
             headers: {
@@ -349,29 +387,40 @@ export default function ProductList() {
     [getAuthToken, navigate, fetchProducts],
   );
 
-  const getCategoryName = useCallback(
-    (categoryId: string) => {
-      const category = categories.find((c) => c.id.toString() === categoryId);
-      return category?.category_name || "-";
-    },
-    [categories],
-  );
+  // Helper functions - now using nested objects
+  const getCategoryName = useCallback((product: ProductType) => {
+    return product?.category?.category_name || "-";
+  }, []);
 
-  const getUnitName = useCallback(
-    (unitId: string | number) => {
-      const unit = units.find((u) => u.id.toString() === unitId.toString());
-      return unit?.unit_name || "-";
-    },
-    [units],
-  );
+  const getUnitName = useCallback((product: ProductType) => {
+    return product?.unit?.unit_name || "-";
+  }, []);
 
-  const getProductTypeLabel = useCallback((type: string) => {
+  const getProductTypeLabel = useCallback((type: string | number) => {
     const types: Record<string, string> = {
       "1": "Kitchen",
       "2": "Juice",
       "3": "Others",
     };
-    return types[type] || type || "-";
+    return types[String(type)] || String(type) || "-";
+  }, []);
+
+  const getPrice = useCallback((product: ProductType) => {
+    const price = product?.sale_price || "0";
+    const numPrice = parseFloat(String(price));
+    return isNaN(numPrice) ? "0.00" : numPrice.toFixed(2);
+  }, []);
+
+  const getVat = useCallback((product: ProductType) => {
+    const vat = product?.vat_rate || "0";
+    const numVat = parseFloat(String(vat));
+    return isNaN(numVat) ? 0 : numVat;
+  }, []);
+
+  const getSd = useCallback((product: ProductType) => {
+    const sd = product?.sd_rate || "0";
+    const numSd = parseFloat(String(sd));
+    return isNaN(numSd) ? 0 : numSd;
   }, []);
 
   const handleRefresh = useCallback(() => {
@@ -385,27 +434,23 @@ export default function ProductList() {
     setSelectedCategory("");
   }, []);
 
-  // Get unique categories for filter
-  const uniqueCategories = useMemo(() => {
-    if (!Array.isArray(products)) return [];
-
-    const categoryIds = new Set(products.map((p) => p.category_id));
-    return Array.from(categoryIds).map((id) => ({
-      id,
-      name: getCategoryName(id),
-    }));
-  }, [products, getCategoryName]);
-
   // Stats
   const stats = useMemo(() => {
     const productArray = Array.isArray(products) ? products : [];
+    const uniqueCategories = new Set(
+      productArray.map((p) => p.category?.id).filter(Boolean),
+    );
+    const uniqueUnits = new Set(
+      productArray.map((p) => p.unit?.id).filter(Boolean),
+    );
+
     return {
       totalProducts: productArray.length,
-      totalCategories: categories.length,
-      totalUnits: units.length,
+      totalCategories: uniqueCategories.size,
+      totalUnits: uniqueUnits.size,
       filteredCount: filteredProducts.length,
     };
-  }, [products, categories, units, filteredProducts]);
+  }, [products, filteredProducts]);
 
   // Show loading while checking authentication
   if (authLoading) {
@@ -642,12 +687,12 @@ export default function ProductList() {
                         </TableCell>
                         <TableCell className="px-4 py-3">
                           <span className="text-xs font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
-                            {product.product_code}
+                            {product.product_code || "-"}
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-3">
                           <span className="text-gray-600 dark:text-gray-300">
-                            {getCategoryName(product.category_id)}
+                            {getCategoryName(product)}
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-3">
@@ -657,22 +702,22 @@ export default function ProductList() {
                         </TableCell>
                         <TableCell className="px-4 py-3 text-center">
                           <span className="text-gray-600 dark:text-gray-300">
-                            {getUnitName(product.unit)}
+                            {getUnitName(product)}
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-3 text-right">
                           <span className="font-semibold text-blue-600 dark:text-blue-400">
-                            ৳{parseFloat(product.price).toFixed(2)}
+                            ৳{getPrice(product)}
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-3 text-center">
                           <span className="text-gray-600 dark:text-gray-300">
-                            {product.vat}%
+                            {getVat(product)}%
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-3 text-center">
                           <span className="text-gray-600 dark:text-gray-300">
-                            {product.sd}%
+                            {getSd(product)}%
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-3 text-center">
