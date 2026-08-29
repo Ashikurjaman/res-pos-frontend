@@ -9,7 +9,14 @@ import Select from "../../components/form/Select";
 import Button from "../../components/ui/button/Button";
 import axios from "axios";
 import Swal from "sweetalert2";
-import { Loader2, Save, X, CheckCircle, AlertCircle, ArrowLeft } from "lucide-react";
+import {
+  Loader2,
+  Save,
+  X,
+  CheckCircle,
+  AlertCircle,
+  ArrowLeft,
+} from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { API_CONFIG } from "../../config/api";
@@ -72,11 +79,12 @@ export default function Category() {
   const validate = useCallback(() => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.category_name.trim()) {
+    const categoryName = formData.category_name.trim();
+    if (!categoryName) {
       newErrors.category_name = "Category name is required";
-    } else if (formData.category_name.trim().length < 2) {
+    } else if (categoryName.length < 2) {
       newErrors.category_name = "Category name must be at least 2 characters";
-    } else if (formData.category_name.trim().length > 50) {
+    } else if (categoryName.length > 50) {
       newErrors.category_name = "Category name must be less than 50 characters";
     }
 
@@ -86,7 +94,9 @@ export default function Category() {
 
   // Get auth token for API requests
   const getAuthToken = useCallback(() => {
-    return localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+    return (
+      localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
+    );
   }, []);
 
   // Save category
@@ -115,6 +125,8 @@ export default function Category() {
         validity: 1,
       };
 
+      console.log("📤 Sending payload:", payload);
+
       const response = await axios.post(
         `${API_CONFIG.baseURL}/category`,
         payload,
@@ -123,13 +135,13 @@ export default function Category() {
             "Content-Type": "application/json",
             Authorization: token ? `Bearer ${token}` : "",
           },
-        }
+        },
       );
 
       Swal.fire({
         icon: "success",
         title: "Category Saved!",
-        text: response.data.message || "Category created successfully!",
+        text: response.data?.message || "Category created successfully!",
         timer: 2000,
         showConfirmButton: false,
         position: "top-end",
@@ -143,7 +155,7 @@ export default function Category() {
       });
       setErrors({});
     } catch (error: any) {
-      console.error("Error saving category:", error.response?.data || error);
+      console.error("❌ Error saving category:", error.response?.data || error);
 
       if (error.response?.status === 401) {
         Swal.fire({
@@ -180,7 +192,8 @@ export default function Category() {
 
   // Reset form
   const handleReset = useCallback(() => {
-    const hasData = formData.category_name.trim() || formData.status.value !== "1";
+    const hasData =
+      formData.category_name.trim() || formData.status.value !== "1";
 
     if (!hasData) {
       Swal.fire({
@@ -340,7 +353,11 @@ export default function Category() {
                   >
                     {loading ? (
                       <>
-                        <Loader2 size={18} className="animate-spin" aria-hidden="true" />
+                        <Loader2
+                          size={18}
+                          className="animate-spin"
+                          aria-hidden="true"
+                        />
                         Saving...
                       </>
                     ) : (
@@ -359,7 +376,11 @@ export default function Category() {
           <div className="mt-4 sm:mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
             <div className="flex items-start gap-3">
               <div className="flex-shrink-0 mt-0.5">
-                <CheckCircle size={20} className="text-blue-600 dark:text-blue-400" aria-hidden="true" />
+                <CheckCircle
+                  size={20}
+                  className="text-blue-600 dark:text-blue-400"
+                  aria-hidden="true"
+                />
               </div>
               <div>
                 <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">

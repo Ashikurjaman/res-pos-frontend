@@ -50,7 +50,9 @@ export default function CategoryEdit() {
 
   // Get auth token
   const getAuthToken = useCallback(() => {
-    return localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+    return (
+      localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
+    );
   }, []);
 
   const fetchCategory = useCallback(async () => {
@@ -74,7 +76,7 @@ export default function CategoryEdit() {
       setCategory(categoryData);
       setOriginalData(categoryData);
     } catch (error: any) {
-      console.error("Error fetching category:", error);
+      console.error("❌ Error fetching category:", error);
 
       if (error.response?.status === 401) {
         Swal.fire({
@@ -135,11 +137,12 @@ export default function CategoryEdit() {
   const validate = useCallback(() => {
     const newErrors: Record<string, string> = {};
 
-    if (!category?.category_name?.trim()) {
+    const categoryName = category?.category_name?.trim();
+    if (!categoryName) {
       newErrors.category_name = "Category name is required";
-    } else if (category.category_name.trim().length < 2) {
+    } else if (categoryName.length < 2) {
       newErrors.category_name = "Category name must be at least 2 characters";
-    } else if (category.category_name.trim().length > 50) {
+    } else if (categoryName.length > 50) {
       newErrors.category_name = "Category name must be less than 50 characters";
     }
 
@@ -150,6 +153,18 @@ export default function CategoryEdit() {
   const handleSave = useCallback(async () => {
     if (!validate() || !category) return;
 
+    if (!isAuthenticated) {
+      Swal.fire({
+        icon: "warning",
+        title: "Not Authenticated",
+        text: "Please login to update category.",
+        confirmButtonColor: "#3b82f6",
+      }).then(() => {
+        navigate("/signin");
+      });
+      return;
+    }
+
     setSaving(true);
     try {
       const token = getAuthToken();
@@ -159,6 +174,8 @@ export default function CategoryEdit() {
         status: parseInt(category.status?.toString() || "1"),
         validity: 1,
       };
+
+      console.log("📤 Updating payload:", payload);
 
       await axios.put(`${API_CONFIG.baseURL}/category/${id}`, payload, {
         headers: {
@@ -179,7 +196,7 @@ export default function CategoryEdit() {
 
       navigate("/category-list");
     } catch (error: any) {
-      console.error("Error updating category:", error);
+      console.error("❌ Error updating category:", error);
 
       if (error.response?.status === 401) {
         Swal.fire({
@@ -212,7 +229,7 @@ export default function CategoryEdit() {
     } finally {
       setSaving(false);
     }
-  }, [category, validate, id, getAuthToken, navigate]);
+  }, [category, validate, id, isAuthenticated, getAuthToken, navigate]);
 
   const handleDelete = useCallback(async () => {
     const result = await Swal.fire({
@@ -248,6 +265,8 @@ export default function CategoryEdit() {
       });
       navigate("/category-list");
     } catch (error: any) {
+      console.error("❌ Error deleting category:", error);
+
       if (error.response?.status === 401) {
         Swal.fire({
           icon: "error",
@@ -299,7 +318,9 @@ export default function CategoryEdit() {
 
   const getCurrentStatus = useCallback(() => {
     const statusValue = category?.status?.toString() || "1";
-    return statusOptions.find((opt) => opt.value === statusValue) || statusOptions[0];
+    return (
+      statusOptions.find((opt) => opt.value === statusValue) || statusOptions[0]
+    );
   }, [category, statusOptions]);
 
   // Show loading while checking authentication
@@ -324,8 +345,13 @@ export default function CategoryEdit() {
         <PageBreadcrumb pageTitle="Edit Category" />
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="w-10 h-10 animate-spin text-blue-500" aria-hidden="true" />
-            <p className="text-gray-500 dark:text-gray-400 text-sm">Loading category data...</p>
+            <Loader2
+              className="w-10 h-10 animate-spin text-blue-500"
+              aria-hidden="true"
+            />
+            <p className="text-gray-500 dark:text-gray-400 text-sm">
+              Loading category data...
+            </p>
           </div>
         </div>
       </div>
@@ -338,7 +364,10 @@ export default function CategoryEdit() {
         <PageBreadcrumb pageTitle="Edit Category" />
         <div className="flex items-center justify-center h-64">
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-8 text-center max-w-md">
-            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" aria-hidden="true" />
+            <AlertCircle
+              className="w-12 h-12 text-red-500 mx-auto mb-3"
+              aria-hidden="true"
+            />
             <h3 className="text-lg font-semibold text-red-700 dark:text-red-400">
               Category Not Found
             </h3>
@@ -434,13 +463,16 @@ export default function CategoryEdit() {
                       Created At
                     </Label>
                     <div className="mt-1 px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-600 dark:text-gray-400">
-                      {new Date(category.created_at).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {new Date(category.created_at).toLocaleDateString(
+                        "en-US",
+                        {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        },
+                      )}
                     </div>
                   </div>
                 )}
@@ -465,7 +497,11 @@ export default function CategoryEdit() {
                   >
                     {saving ? (
                       <>
-                        <Loader2 size={18} className="animate-spin" aria-hidden="true" />
+                        <Loader2
+                          size={18}
+                          className="animate-spin"
+                          aria-hidden="true"
+                        />
                         Saving...
                       </>
                     ) : (
@@ -484,7 +520,11 @@ export default function CategoryEdit() {
           <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
             <div className="flex items-start gap-3">
               <div className="flex-shrink-0 mt-0.5">
-                <CheckCircle size={20} className="text-blue-600 dark:text-blue-400" aria-hidden="true" />
+                <CheckCircle
+                  size={20}
+                  className="text-blue-600 dark:text-blue-400"
+                  aria-hidden="true"
+                />
               </div>
               <div>
                 <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">

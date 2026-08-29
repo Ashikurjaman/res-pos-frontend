@@ -24,6 +24,8 @@ import {
 
 type OptionType = { value: string; label: string };
 
+// src/pages/Products/Product.tsx
+
 interface FormData {
   product_name: string;
   category_id: number;
@@ -40,7 +42,7 @@ interface FormData {
   scharge: string;
   opening_balance: string;
   supplier_id: number[];
-  food_type: number;
+  food_type_id: number; // ✅ Changed from food_type to food_type_id
   outlet_id: number;
   product_image: File | null;
 }
@@ -80,7 +82,7 @@ export default function Product() {
   const productTypes: OptionType[] = useMemo(
     () => [
       { value: "1", label: "Sale Product" },
-      { value: "2", label: "Raw Materials" },
+      { value: "2", label: "Raw Material" },
       { value: "3", label: "Sub Recipe" },
     ],
     [],
@@ -111,19 +113,33 @@ export default function Product() {
   const fetchCreateData = useCallback(async () => {
     try {
       setFetching(true);
+      console.log("🔍 Fetching product create data...");
+
       const response = await ProductService.getCreateData();
-      const data = response.data || response;
+      console.log("📥 Full Response:", response);
+
+      let data = response;
+      if (response && response.data) {
+        data = response.data;
+      }
+
+      console.log("📥 Processed Data:", data);
+
       setCreateData(data);
 
-      // Set product code
       if (data.next_code) {
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           product_code: data.next_code,
         }));
       }
+
+      console.log("📊 Categories:", data.categories);
+      console.log("📊 Units:", data.units);
+      console.log("📊 Suppliers:", data.suppliers);
+      console.log("📊 Food Types:", data.food_types);
     } catch (error: any) {
-      console.error("Error fetching create data:", error);
+      console.error("❌ Error fetching create data:", error);
 
       let errorMessage = "Failed to load product data.";
       if (error.response?.data?.message) {
@@ -142,6 +158,27 @@ export default function Product() {
       setFetching(false);
     }
   }, []);
+
+  // Handle product type change - clear suppliers if not raw material
+  const handleProductTypeChange = useCallback(
+    (value: OptionType | null) => {
+      if (value) {
+        const productType = parseInt(value.value);
+        setFormData((prev) => ({
+          ...prev,
+          product_type: productType,
+          supplier_id: productType === 2 ? prev.supplier_id : [],
+        }));
+        if (errors.product_type) {
+          setErrors((prev) => ({ ...prev, product_type: "" }));
+        }
+        if (errors.supplier_id) {
+          setErrors((prev) => ({ ...prev, supplier_id: "" }));
+        }
+      }
+    },
+    [errors],
+  );
 
   // Handle input changes
   const handleChange = useCallback(
@@ -225,6 +262,14 @@ export default function Product() {
       newErrors.price = "Please enter a valid price greater than 0";
     }
 
+    // ✅ Validate supplier for raw materials
+    if (formData.product_type === 2) {
+      if (!formData.supplier_id || formData.supplier_id.length === 0) {
+        newErrors.supplier_id =
+          "Please select at least one supplier for raw materials";
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }, [formData]);
@@ -249,14 +294,15 @@ export default function Product() {
     try {
       const formDataObj = new FormData();
 
-      // Append all fields
       Object.entries(formData).forEach(([key, value]) => {
-        if (key === 'product_image' && value instanceof File) {
+        if (key === "product_image" && value instanceof File) {
           formDataObj.append(key, value);
-        } else if (key === 'supplier_id' && Array.isArray(value)) {
-          value.forEach((id) => {
-            formDataObj.append('supplier_id[]', id.toString());
-          });
+        } else if (key === "supplier_id" && Array.isArray(value)) {
+          if (value.length > 0) {
+            value.forEach((id) => {
+              formDataObj.append("supplier_id[]", id.toString());
+            });
+          }
         } else if (value !== null && value !== undefined && value !== "") {
           formDataObj.append(key, value.toString());
         }
@@ -298,7 +344,6 @@ export default function Product() {
       setImagePreview(null);
       setErrors({});
 
-      // Fetch new code
       fetchCreateData();
     } catch (error: any) {
       console.error("Error saving product:", error);
@@ -326,13 +371,11 @@ export default function Product() {
 
   // Reset form
   const handleReset = useCallback(() => {
-    const hasData = Object.values(formData).some(
-      (val) => {
-        if (Array.isArray(val)) return val.length > 0;
-        if (val instanceof File) return true;
-        return val !== "" && val !== 0 && val !== "0" && val !== null;
-      }
-    );
+    const hasData = Object.values(formData).some((val) => {
+      if (Array.isArray(val)) return val.length > 0;
+      if (val instanceof File) return true;
+      return val !== "" && val !== 0 && val !== "0" && val !== null;
+    });
 
     if (!hasData && !imagePreview) {
       Swal.fire({
@@ -396,7 +439,6 @@ export default function Product() {
     navigate("/products-list");
   }, [navigate]);
 
-  // Show loading while checking authentication
   if (authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6 flex items-center justify-center">
@@ -408,12 +450,10 @@ export default function Product() {
     );
   }
 
-  // If not authenticated, return null
   if (!isAuthenticated) {
     return null;
   }
 
-  // Loading state
   if (fetching) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6">
@@ -517,19 +557,21 @@ export default function Product() {
                     Category <span className="text-red-500">*</span>
                   </Label>
                   <Select
-                    options={createData?.data?.categories?.map((c) => ({
-                      value: c.id.toString(),
-                      label: c.category_name,
-                    })) || []}
+                    options={
+                      createData?.categories?.map((c) => ({
+                        value: c.id.toString(),
+                        label: c.category_name,
+                      })) || []
+                    }
                     value={
-                      createData?.data?.categories?.find(
-                        (c) => c.id === formData.category_id
+                      createData?.categories?.find(
+                        (c) => c.id === formData.category_id,
                       )
                         ? {
                             value: formData.category_id.toString(),
                             label:
-                              createData.data.categories.find(
-                                (c) => c.id === formData.category_id
+                              createData.categories.find(
+                                (c) => c.id === formData.category_id,
                               )?.category_name || "",
                           }
                         : null
@@ -537,6 +579,7 @@ export default function Product() {
                     onChange={(val) => handleSelectChange("category_id", val)}
                     className="w-full"
                     isDisabled={loading}
+                    placeholder="Select category"
                   />
                   {errors.category_id && (
                     <p className="mt-1.5 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
@@ -552,19 +595,19 @@ export default function Product() {
                     Unit <span className="text-red-500">*</span>
                   </Label>
                   <Select
-                    options={createData?.data?.units?.map((u) => ({
-                      value: u.id.toString(),
-                      label: u.unit_name,
-                    })) || []}
+                    options={
+                      createData?.units?.map((u) => ({
+                        value: u.id.toString(),
+                        label: u.unit_name,
+                      })) || []
+                    }
                     value={
-                      createData?.data?.units?.find(
-                        (u) => u.id === formData.unit_id
-                      )
+                      createData?.units?.find((u) => u.id === formData.unit_id)
                         ? {
                             value: formData.unit_id.toString(),
                             label:
-                              createData.data.units.find(
-                                (u) => u.id === formData.unit_id
+                              createData.units.find(
+                                (u) => u.id === formData.unit_id,
                               )?.unit_name || "",
                           }
                         : null
@@ -572,6 +615,7 @@ export default function Product() {
                     onChange={(val) => handleSelectChange("unit_id", val)}
                     className="w-full"
                     isDisabled={loading}
+                    placeholder="Select unit"
                   />
                   {errors.unit_id && (
                     <p className="mt-1.5 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
@@ -615,17 +659,29 @@ export default function Product() {
                 {/* Product Type */}
                 <div>
                   <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1.5">
-                    Product Type
+                    Product Type <span className="text-red-500">*</span>
                   </Label>
                   <Select
                     options={productTypes}
-                    value={productTypes.find(
-                      (opt) => parseInt(opt.value) === formData.product_type
-                    ) || null}
-                    onChange={(val) => handleSelectChange("product_type", val)}
+                    value={
+                      productTypes.find(
+                        (opt) => parseInt(opt.value) === formData.product_type,
+                      ) || null
+                    }
+                    onChange={handleProductTypeChange}
                     className="w-full"
                     isDisabled={loading}
                   />
+                  {formData.product_type === 2 && (
+                    <p className="mt-1.5 text-xs text-blue-600 dark:text-blue-400">
+                      ⚠️ Raw materials require at least one supplier
+                    </p>
+                  )}
+                  {formData.product_type === 1 && (
+                    <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
+                      ℹ️ Suppliers are optional for sale products
+                    </p>
+                  )}
                 </div>
 
                 {/* Cost Price */}
@@ -740,9 +796,11 @@ export default function Product() {
                   </Label>
                   <Select
                     options={disStatusOptions}
-                    value={disStatusOptions.find(
-                      (opt) => parseInt(opt.value) === formData.dis_status
-                    ) || null}
+                    value={
+                      disStatusOptions.find(
+                        (opt) => parseInt(opt.value) === formData.dis_status,
+                      ) || null
+                    }
                     onChange={(val) => handleSelectChange("dis_status", val)}
                     className="w-full"
                     isDisabled={loading}
@@ -794,26 +852,33 @@ export default function Product() {
                     Food Type
                   </Label>
                   <Select
-                    options={createData?.data?.food_types?.map((f) => ({
-                      value: f.id.toString(),
-                      label: f.name,
-                    })) || []}
+                    options={
+                      createData?.food_types?.map((f) => ({
+                        value: f.id.toString(),
+                        label: f.type_name || f.name || "Unknown",
+                      })) || []
+                    }
                     value={
-                      createData?.data?.food_types?.find(
-                        (f) => f.id === formData.food_type
+                      createData?.food_types?.find(
+                        (f) => f.id === formData.food_type_id, // ✅ Use food_type_id
                       )
                         ? {
-                            value: formData.food_type.toString(),
+                            value: formData.food_type_id.toString(), // ✅ Use food_type_id
                             label:
-                              createData.data.food_types.find(
-                                (f) => f.id === formData.food_type
-                              )?.name || "",
+                              createData.food_types.find(
+                                (f) => f.id === formData.food_type_id, // ✅ Use food_type_id
+                              )?.type_name ||
+                              createData.food_types.find(
+                                (f) => f.id === formData.food_type_id, // ✅ Use food_type_id
+                              )?.name ||
+                              "",
                           }
                         : null
                     }
-                    onChange={(val) => handleSelectChange("food_type", val)}
+                    onChange={(val) => handleSelectChange("food_type_id", val)} // ✅ Use food_type_id
                     className="w-full"
                     isDisabled={loading}
+                    placeholder="Select food type"
                   />
                 </div>
 
@@ -821,26 +886,53 @@ export default function Product() {
                 <div className="md:col-span-2">
                   <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1.5">
                     Suppliers
+                    {formData.product_type === 2 && (
+                      <span className="text-red-500 ml-1">*</span>
+                    )}
+                    {formData.product_type === 1 && (
+                      <span className="text-gray-400 text-xs ml-1">
+                        (Optional)
+                      </span>
+                    )}
                   </Label>
                   <Select
-                    options={createData?.data?.suppliers?.map((s) => ({
-                      value: s.id.toString(),
-                      label: s.supplier_name,
-                    })) || []}
+                    options={
+                      createData?.suppliers?.map((s) => ({
+                        value: s.id.toString(),
+                        label: s.supplier_name,
+                      })) || []
+                    }
                     value={
-                      createData?.data?.suppliers
+                      createData?.suppliers
                         ?.filter((s) => formData.supplier_id.includes(s.id))
                         .map((s) => ({
                           value: s.id.toString(),
                           label: s.supplier_name,
                         })) || []
                     }
-                    onChange={(val) => handleMultiSelectChange("supplier_id", val)}
+                    onChange={(val) =>
+                      handleMultiSelectChange("supplier_id", val)
+                    }
                     className="w-full"
                     isDisabled={loading}
                     isMulti={true}
-                    placeholder="Select suppliers"
+                    placeholder={
+                      formData.product_type === 2
+                        ? "Select suppliers (required)"
+                        : "Select suppliers (optional)"
+                    }
                   />
+                  {errors.supplier_id && (
+                    <p className="mt-1.5 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
+                      <AlertCircle size={14} aria-hidden="true" />
+                      {errors.supplier_id}
+                    </p>
+                  )}
+                  {formData.product_type === 2 && (
+                    <p className="mt-1.5 text-xs text-blue-600 dark:text-blue-400">
+                      ⚠️ Select at least one supplier for this raw material
+                    </p>
+                  )}
                 </div>
 
                 {/* Product Image */}
@@ -873,7 +965,10 @@ export default function Product() {
                           type="button"
                           onClick={() => {
                             setImagePreview(null);
-                            setFormData((prev) => ({ ...prev, product_image: null }));
+                            setFormData((prev) => ({
+                              ...prev,
+                              product_image: null,
+                            }));
                           }}
                           className="absolute -top-1 -right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
                         >
@@ -912,7 +1007,11 @@ export default function Product() {
                 >
                   {loading ? (
                     <>
-                      <Loader2 size={18} className="animate-spin" aria-hidden="true" />
+                      <Loader2
+                        size={18}
+                        className="animate-spin"
+                        aria-hidden="true"
+                      />
                       Saving...
                     </>
                   ) : (
@@ -945,7 +1044,10 @@ export default function Product() {
                   <li>Product code must be unique</li>
                   <li>Price must be a positive number</li>
                   <li>VAT and SD are optional (enter 0 if not applicable)</li>
-                  <li>Upload a clear product image for better identification</li>
+                  <li>Raw materials require at least one supplier</li>
+                  <li>
+                    Upload a clear product image for better identification
+                  </li>
                 </ul>
               </div>
             </div>

@@ -5,7 +5,7 @@ const api = axios.create({
   baseURL: "http://localhost:8000/api",
   headers: {
     "Content-Type": "application/json",
-    "Accept": "application/json",
+    Accept: "application/json",
   },
   withCredentials: false,
 });
@@ -13,60 +13,99 @@ const api = axios.create({
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+    const token = getAuthToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 // Response interceptor
 api.interceptors.response.use(
   (response) => {
-    // Return the full response data
     return response.data;
   },
   (error) => {
-    console.error('API Error:', error);
-    
+    console.error("API Error:", error);
+
     // Handle network errors
     if (error.code === "ERR_NETWORK") {
       console.error("Network error - please check your connection");
       return Promise.reject({
         success: false,
-        message: "Network error - please check your connection"
+        message: "Network error - please check your connection",
       });
     }
-    
+
     // Handle 401 Unauthorized
     if (error.response?.status === 401) {
-      localStorage.removeItem("authToken");
-      sessionStorage.removeItem("authToken");
-      window.location.href = "/signin";
+      console.error("Unauthorized - Token may be expired");
+      clearAuthToken();
+
+      // Don't redirect if already on login page
+      if (
+        window.location.pathname !== "/signin" &&
+        window.location.pathname !== "/signup"
+      ) {
+        window.location.href = "/signin";
+      }
+
       return Promise.reject({
         success: false,
-        message: "Session expired. Please login again."
+        message: "Session expired. Please login again.",
       });
     }
-    
+
     // Handle 422 Validation Error
     if (error.response?.status === 422) {
       return Promise.reject({
         success: false,
         message: "Validation failed",
-        errors: error.response.data?.errors
+        errors: error.response.data?.errors,
       });
     }
-    
+
     // Handle other errors
     return Promise.reject({
       success: false,
-      message: error.response?.data?.message || error.message || "An error occurred",
-      status: error.response?.status
+      message:
+        error.response?.data?.message || error.message || "An error occurred",
+      status: error.response?.status,
     });
-  }
+  },
 );
+
+// Helper functions
+export const setAuthToken = (token: string, rememberMe: boolean = false) => {
+  if (rememberMe) {
+    localStorage.setItem("authToken", token);
+    localStorage.setItem("rememberMe", "true");
+  } else {
+    sessionStorage.setItem("authToken", token);
+    localStorage.removeItem("rememberMe");
+  }
+  api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+  console.log("✅ Auth token set");
+};
+
+export const clearAuthToken = () => {
+  localStorage.removeItem("authToken");
+  sessionStorage.removeItem("authToken");
+  localStorage.removeItem("rememberMe");
+  delete api.defaults.headers.common["Authorization"];
+  console.log("✅ Auth token cleared");
+};
+
+export const getAuthToken = () => {
+  return (
+    localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
+  );
+};
+
+export const isAuthenticated = () => {
+  return !!getAuthToken();
+};
 
 export default api;

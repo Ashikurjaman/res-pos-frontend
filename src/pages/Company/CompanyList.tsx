@@ -1,14 +1,13 @@
 // src/pages/Company/CompanyList.tsx
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router";
+import { useAuth } from "../../hooks/useAuth";
 import ComponentCard from "../../components/common/ComponentCard";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import CompanyService from "../../services/CompanyService";
 import { Company } from "../../services/CompanyService";
-import { useApi } from "../../hooks/useApi";
-import { useAuth } from "../../hooks/useAuth";
 import Swal from "sweetalert2";
-import { useNavigate } from "react-router";
 import {
   Plus,
   Edit,
@@ -21,52 +20,85 @@ import {
 } from "lucide-react";
 
 export default function CompanyList() {
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [filteredCompanies, setFilteredCompanies] = useState<Company[]>([]);
-  const { hasRole } = useAuth();
-
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  const { loading, execute } = useApi({
-    onSuccess: (data) => {
-      setCompanies(data);
-      setFilteredCompanies(data);
-    },
-    onError: (error) => {
-      console.error("Failed to load companies:", error);
-    },
-  });
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [filteredCompanies, setFilteredCompanies] = useState<Company[]>([]);
 
-  // Fetch companies
-  const fetchCompanies = useCallback(async () => {
-    await execute(
-      () => CompanyService.getAll(),
-      "Companies loaded successfully",
-    );
-  }, [execute]);
-
+  // Check authentication
   useEffect(() => {
-    fetchCompanies();
-  }, [fetchCompanies]);
+    if (!authLoading && !isAuthenticated) {
+      navigate("/signin");
+    }
+  }, [isAuthenticated, authLoading, navigate]);
 
   // Filter companies
   useEffect(() => {
+    if (!Array.isArray(companies)) {
+      setFilteredCompanies([]);
+      return;
+    }
+
     if (searchTerm.trim() === "") {
       setFilteredCompanies(companies);
     } else {
       const term = searchTerm.toLowerCase().trim();
       const filtered = companies.filter(
         (company) =>
-          company.company_name.toLowerCase().includes(term) ||
-          company.outlet_name.toLowerCase().includes(term) ||
-          company.address.toLowerCase().includes(term) ||
-          company.contact_no.includes(term) ||
+          company.company_name?.toLowerCase().includes(term) ||
+          company.outlet_name?.toLowerCase().includes(term) ||
+          company.address?.toLowerCase().includes(term) ||
+          company.contact_no?.includes(term) ||
           (company.email && company.email.toLowerCase().includes(term)),
       );
       setFilteredCompanies(filtered);
     }
   }, [searchTerm, companies]);
+
+  // Get auth token
+  const getAuthToken = useCallback(() => {
+    return (
+      localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
+    );
+  }, []);
+
+  const fetchCompanies = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await CompanyService.getAll();
+      // ✅ Ensure data is an array
+      const companyArray = Array.isArray(data) ? data : [];
+      setCompanies(companyArray);
+      setFilteredCompanies(companyArray);
+    } catch (error: any) {
+      console.error("Error fetching companies:", error);
+
+      if (error.status === 401) {
+        navigate("/signin");
+        return;
+      }
+
+      Swal.fire({
+        icon: "error",
+        title: "Error!",
+        text: error.message || "Failed to load companies.",
+        confirmButtonColor: "#3b82f6",
+      });
+      setCompanies([]);
+      setFilteredCompanies([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchCompanies();
+    }
+  }, [isAuthenticated, fetchCompanies]);
 
   const handleDelete = useCallback(
     async (company: Company) => {
@@ -95,15 +127,22 @@ export default function CompanyList() {
         });
         fetchCompanies();
       } catch (error: any) {
+        console.error("Delete error:", error);
+
+        if (error.status === 401) {
+          navigate("/signin");
+          return;
+        }
+
         Swal.fire({
           icon: "error",
           title: "Delete Failed!",
-          text: error.response?.data?.message || "Failed to delete company.",
+          text: error.message || "Failed to delete company.",
           confirmButtonColor: "#3b82f6",
         });
       }
     },
-    [fetchCompanies],
+    [fetchCompanies, navigate],
   );
 
   const handleRestore = useCallback(
@@ -133,28 +172,91 @@ export default function CompanyList() {
         });
         fetchCompanies();
       } catch (error: any) {
+        console.error("Restore error:", error);
+
+        if (error.status === 401) {
+          navigate("/signin");
+          return;
+        }
+
         Swal.fire({
           icon: "error",
           title: "Restore Failed!",
-          text: error.response?.data?.message || "Failed to restore company.",
+          text: error.message || "Failed to restore company.",
           confirmButtonColor: "#3b82f6",
         });
       }
     },
-    [fetchCompanies],
+    [fetchCompanies, navigate],
   );
 
-  const getValidityBadge = (validity: boolean) => {
-    return validity
-      ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-      : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
-  };
+  const getValidityBadge = useCallback((validity: number) => {
+    if (validity === 1) {
+      return (
+        <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+          Active
+        </span>
+      );
+    } else {
+      return (
+        <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+          Inactive
+        </span>
+      );
+    }
+  }, []);
 
-  const getPayTypeBadge = (payType: number) => {
-    return payType === 1
-      ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
-      : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400";
-  };
+  const getPayTypeBadge = useCallback((payType: number) => {
+    if (payType === 1) {
+      return (
+        <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+          Paid
+        </span>
+      );
+    } else {
+      return (
+        <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+          Due
+        </span>
+      );
+    }
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    fetchCompanies();
+    setSearchTerm("");
+  }, [fetchCompanies]);
+
+  const handleClearSearch = useCallback(() => {
+    setSearchTerm("");
+  }, []);
+
+  // ✅ Memoized stats
+  const stats = useMemo(() => {
+    const companyArray = Array.isArray(companies) ? companies : [];
+    return {
+      total: companyArray.length,
+      active: companyArray.filter((c) => c.validity === 1).length,
+      inactive: companyArray.filter((c) => c.validity === 0).length,
+    };
+  }, [companies]);
+
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-3 sm:p-4 md:p-6 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
+          <p className="text-gray-500 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If not authenticated, return null
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-3 sm:p-4 md:p-6">
@@ -182,7 +284,7 @@ export default function CompanyList() {
             </div>
             <div className="flex gap-2 w-full sm:w-auto">
               <button
-                onClick={fetchCompanies}
+                onClick={handleRefresh}
                 disabled={loading}
                 className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 text-white rounded-lg transition-colors text-sm disabled:opacity-50"
                 aria-label="Refresh"
@@ -201,6 +303,32 @@ export default function CompanyList() {
                 <Plus size={16} aria-hidden="true" />
                 Add New
               </button>
+            </div>
+          </div>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+              <p className="text-sm text-blue-600 dark:text-blue-400">
+                Total Companies
+              </p>
+              <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                {stats.total}
+              </p>
+            </div>
+            <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+              <p className="text-sm text-green-600 dark:text-green-400">
+                Active
+              </p>
+              <p className="text-2xl font-bold text-green-700 dark:text-green-300">
+                {stats.active}
+              </p>
+            </div>
+            <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
+              <p className="text-sm text-red-600 dark:text-red-400">Inactive</p>
+              <p className="text-2xl font-bold text-red-700 dark:text-red-300">
+                {stats.inactive}
+              </p>
             </div>
           </div>
 
@@ -248,7 +376,8 @@ export default function CompanyList() {
                         </div>
                       </td>
                     </tr>
-                  ) : filteredCompanies.length === 0 ? (
+                  ) : !Array.isArray(filteredCompanies) ||
+                    filteredCompanies.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="px-4 py-8 text-center">
                         <div className="flex flex-col items-center gap-2">
@@ -263,10 +392,19 @@ export default function CompanyList() {
                           </p>
                           {searchTerm && (
                             <button
-                              onClick={() => setSearchTerm("")}
-                              className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                              onClick={handleClearSearch}
+                              className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1"
                             >
                               Clear search
+                            </button>
+                          )}
+                          {!searchTerm && (
+                            <button
+                              onClick={() => navigate("/companies/create")}
+                              className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1"
+                            >
+                              <Plus size={14} aria-hidden="true" />
+                              Add your first company
                             </button>
                           )}
                         </div>
@@ -309,18 +447,10 @@ export default function CompanyList() {
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${getPayTypeBadge(company.pay_type)}`}
-                          >
-                            {company.pay_type === 1 ? "Paid" : "Due"}
-                          </span>
+                          {getPayTypeBadge(company.pay_type)}
                         </td>
                         <td className="px-4 py-3">
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${getValidityBadge(company.validity)}`}
-                          >
-                            {company.validity ? "Active" : "Inactive"}
-                          </span>
+                          {getValidityBadge(company.validity)}
                         </td>
                         <td className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center gap-1">
@@ -328,7 +458,7 @@ export default function CompanyList() {
                               onClick={() =>
                                 navigate(`/companies/${company.id}`)
                               }
-                              className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                              className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
                               title="View"
                               aria-label={`View ${company.company_name}`}
                             >
@@ -338,16 +468,16 @@ export default function CompanyList() {
                               onClick={() =>
                                 navigate(`/companies/edit/${company.id}`)
                               }
-                              className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                              className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
                               title="Edit"
                               aria-label={`Edit ${company.company_name}`}
                             >
                               <Edit size={18} aria-hidden="true" />
                             </button>
-                            {!company.validity ? (
+                            {company.validity === 0 ? (
                               <button
                                 onClick={() => handleRestore(company)}
-                                className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors"
+                                className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-green-500"
                                 title="Restore"
                                 aria-label={`Restore ${company.company_name}`}
                               >
@@ -356,7 +486,7 @@ export default function CompanyList() {
                             ) : (
                               <button
                                 onClick={() => handleDelete(company)}
-                                className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                                className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
                                 title="Delete"
                                 aria-label={`Delete ${company.company_name}`}
                               >
@@ -374,23 +504,23 @@ export default function CompanyList() {
           </div>
 
           {/* Footer */}
-          {filteredCompanies.length > 0 && (
+          {Array.isArray(filteredCompanies) && filteredCompanies.length > 0 && (
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mt-4">
               <span>
-                Showing {filteredCompanies.length} of {companies.length}{" "}
-                companies
+                Showing {filteredCompanies.length} of{" "}
+                {Array.isArray(companies) ? companies.length : 0} companies
               </span>
               <div className="flex flex-wrap gap-4">
                 <span>
                   Active:{" "}
                   <strong className="text-green-600 dark:text-green-400">
-                    {companies.filter((c) => c.validity).length}
+                    {stats.active}
                   </strong>
                 </span>
                 <span>
                   Inactive:{" "}
                   <strong className="text-red-600 dark:text-red-400">
-                    {companies.filter((c) => !c.validity).length}
+                    {stats.inactive}
                   </strong>
                 </span>
               </div>

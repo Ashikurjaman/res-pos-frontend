@@ -72,7 +72,9 @@ export default function ProductList() {
 
   // Get auth token
   const getAuthToken = useCallback(() => {
-    return localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+    return (
+      localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
+    );
   }, []);
 
   // Fetch products on mount
@@ -114,14 +116,11 @@ export default function ProductList() {
       setLoading(true);
       const token = getAuthToken();
 
-      const res = await axios.get(
-        `${API_CONFIG.baseURL}/api/products`,
-        {
-          headers: {
-            Authorization: token ? `Bearer ${token}` : "",
-          },
-        }
-      );
+      const res = await axios.get(`${API_CONFIG.baseURL}/products`, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+      });
 
       // Handle different response structures
       let productsData = [];
@@ -141,7 +140,7 @@ export default function ProductList() {
       } else {
         // Try to extract from response
         const values = Object.values(res.data || {});
-        const arrayValue = values.find(v => Array.isArray(v));
+        const arrayValue = values.find((v) => Array.isArray(v));
         if (arrayValue) {
           productsData = arrayValue;
         }
@@ -171,7 +170,10 @@ export default function ProductList() {
       let errorMessage = "Failed to load products.";
       if (axios.isAxiosError(error)) {
         if (error.response) {
-          errorMessage = error.response.data?.message || error.response.statusText || `Server error: ${error.response.status}`;
+          errorMessage =
+            error.response.data?.message ||
+            error.response.statusText ||
+            `Server error: ${error.response.status}`;
         } else if (error.request) {
           errorMessage = "Network error - please check your connection";
         }
@@ -204,142 +206,148 @@ export default function ProductList() {
     [navigate],
   );
 
-  const handleDelete = useCallback(async (id: number, productName: string) => {
-    const result = await Swal.fire({
-      title: "Delete Product?",
-      text: `Are you sure you want to delete "${productName}"?`,
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#ef4444",
-      cancelButtonColor: "#6b7280",
-      confirmButtonText: "Yes, delete it",
-      cancelButtonText: "Cancel",
-    });
+  const handleDelete = useCallback(
+    async (id: number, productName: string) => {
+      const result = await Swal.fire({
+        title: "Delete Product?",
+        text: `Are you sure you want to delete "${productName}"?`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#ef4444",
+        cancelButtonColor: "#6b7280",
+        confirmButtonText: "Yes, delete it",
+        cancelButtonText: "Cancel",
+      });
 
-    if (!result.isConfirmed) return;
+      if (!result.isConfirmed) return;
 
-    try {
-      const token = getAuthToken();
+      try {
+        const token = getAuthToken();
 
-      await axios.delete(
-        `${API_CONFIG.baseURL}/api/products/${id}`,
-        {
+        await axios.delete(`${API_CONFIG.baseURL}/api/products/${id}`, {
           headers: {
             Authorization: token ? `Bearer ${token}` : "",
           },
+        });
+
+        setProducts((prev) => prev.filter((p) => p.id !== id));
+        setFilteredProducts((prev) => prev.filter((p) => p.id !== id));
+
+        Swal.fire({
+          icon: "success",
+          title: "Deleted!",
+          text: "Product deleted successfully.",
+          timer: 2000,
+          showConfirmButton: false,
+          position: "top-end",
+          toast: true,
+        });
+      } catch (error: any) {
+        console.error("Error deleting product:", error);
+
+        if (error.response?.status === 401) {
+          Swal.fire({
+            icon: "error",
+            title: "Session Expired",
+            text: "Your session has expired. Please login again.",
+            confirmButtonColor: "#3b82f6",
+          }).then(() => {
+            localStorage.removeItem("authToken");
+            sessionStorage.removeItem("authToken");
+            navigate("/signin");
+          });
+          return;
         }
-      );
 
-      setProducts((prev) => prev.filter((p) => p.id !== id));
-      setFilteredProducts((prev) => prev.filter((p) => p.id !== id));
+        let errorMessage = "Failed to delete product.";
+        if (axios.isAxiosError(error)) {
+          if (error.response) {
+            errorMessage =
+              error.response.data?.message ||
+              error.response.statusText ||
+              `Server error: ${error.response.status}`;
+          } else if (error.request) {
+            errorMessage = "Network error - please check your connection";
+          }
+        }
 
-      Swal.fire({
-        icon: "success",
-        title: "Deleted!",
-        text: "Product deleted successfully.",
-        timer: 2000,
-        showConfirmButton: false,
-        position: "top-end",
-        toast: true,
-      });
-    } catch (error: any) {
-      console.error("Error deleting product:", error);
-
-      if (error.response?.status === 401) {
         Swal.fire({
           icon: "error",
-          title: "Session Expired",
-          text: "Your session has expired. Please login again.",
+          title: "Delete Failed!",
+          text: errorMessage,
           confirmButtonColor: "#3b82f6",
-        }).then(() => {
-          localStorage.removeItem("authToken");
-          sessionStorage.removeItem("authToken");
-          navigate("/signin");
         });
-        return;
       }
+    },
+    [getAuthToken, navigate],
+  );
 
-      let errorMessage = "Failed to delete product.";
-      if (axios.isAxiosError(error)) {
-        if (error.response) {
-          errorMessage = error.response.data?.message || error.response.statusText || `Server error: ${error.response.status}`;
-        } else if (error.request) {
-          errorMessage = "Network error - please check your connection";
-        }
-      }
-
-      Swal.fire({
-        icon: "error",
-        title: "Delete Failed!",
-        text: errorMessage,
+  const handleRestore = useCallback(
+    async (id: number, productName: string) => {
+      const result = await Swal.fire({
+        title: "Restore Product?",
+        text: `Are you sure you want to restore "${productName}"?`,
+        icon: "question",
+        showCancelButton: true,
         confirmButtonColor: "#3b82f6",
+        cancelButtonColor: "#6b7280",
+        confirmButtonText: "Yes, restore",
+        cancelButtonText: "Cancel",
       });
-    }
-  }, [getAuthToken, navigate]);
 
-  const handleRestore = useCallback(async (id: number, productName: string) => {
-    const result = await Swal.fire({
-      title: "Restore Product?",
-      text: `Are you sure you want to restore "${productName}"?`,
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonColor: "#3b82f6",
-      cancelButtonColor: "#6b7280",
-      confirmButtonText: "Yes, restore",
-      cancelButtonText: "Cancel",
-    });
+      if (!result.isConfirmed) return;
 
-    if (!result.isConfirmed) return;
+      try {
+        const token = getAuthToken();
 
-    try {
-      const token = getAuthToken();
-
-      await axios.post(
-        `${API_CONFIG.baseURL}/api/products/${id}/restore`,
-        {},
-        {
-          headers: {
-            Authorization: token ? `Bearer ${token}` : "",
+        await axios.post(
+          `${API_CONFIG.baseURL}/api/products/${id}/restore`,
+          {},
+          {
+            headers: {
+              Authorization: token ? `Bearer ${token}` : "",
+            },
           },
+        );
+
+        fetchProducts();
+
+        Swal.fire({
+          icon: "success",
+          title: "Restored!",
+          text: "Product restored successfully.",
+          timer: 2000,
+          showConfirmButton: false,
+          position: "top-end",
+          toast: true,
+        });
+      } catch (error: any) {
+        console.error("Error restoring product:", error);
+
+        if (error.response?.status === 401) {
+          Swal.fire({
+            icon: "error",
+            title: "Session Expired",
+            text: "Your session has expired. Please login again.",
+            confirmButtonColor: "#3b82f6",
+          }).then(() => {
+            localStorage.removeItem("authToken");
+            sessionStorage.removeItem("authToken");
+            navigate("/signin");
+          });
+          return;
         }
-      );
 
-      fetchProducts();
-
-      Swal.fire({
-        icon: "success",
-        title: "Restored!",
-        text: "Product restored successfully.",
-        timer: 2000,
-        showConfirmButton: false,
-        position: "top-end",
-        toast: true,
-      });
-    } catch (error: any) {
-      console.error("Error restoring product:", error);
-
-      if (error.response?.status === 401) {
         Swal.fire({
           icon: "error",
-          title: "Session Expired",
-          text: "Your session has expired. Please login again.",
+          title: "Restore Failed!",
+          text: error.response?.data?.message || "Failed to restore product.",
           confirmButtonColor: "#3b82f6",
-        }).then(() => {
-          localStorage.removeItem("authToken");
-          sessionStorage.removeItem("authToken");
-          navigate("/signin");
         });
-        return;
       }
-
-      Swal.fire({
-        icon: "error",
-        title: "Restore Failed!",
-        text: error.response?.data?.message || "Failed to restore product.",
-        confirmButtonColor: "#3b82f6",
-      });
-    }
-  }, [getAuthToken, navigate, fetchProducts]);
+    },
+    [getAuthToken, navigate, fetchProducts],
+  );
 
   const getCategoryName = useCallback(
     (categoryId: string) => {
@@ -482,16 +490,28 @@ export default function ProductList() {
           {/* Stats Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-              <p className="text-sm text-blue-600 dark:text-blue-400">Total Products</p>
-              <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{stats.totalProducts}</p>
+              <p className="text-sm text-blue-600 dark:text-blue-400">
+                Total Products
+              </p>
+              <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                {stats.totalProducts}
+              </p>
             </div>
             <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
-              <p className="text-sm text-green-600 dark:text-green-400">Categories</p>
-              <p className="text-2xl font-bold text-green-700 dark:text-green-300">{stats.totalCategories}</p>
+              <p className="text-sm text-green-600 dark:text-green-400">
+                Categories
+              </p>
+              <p className="text-2xl font-bold text-green-700 dark:text-green-300">
+                {stats.totalCategories}
+              </p>
             </div>
             <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg">
-              <p className="text-sm text-purple-600 dark:text-purple-400">Units</p>
-              <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">{stats.totalUnits}</p>
+              <p className="text-sm text-purple-600 dark:text-purple-400">
+                Units
+              </p>
+              <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">
+                {stats.totalUnits}
+              </p>
             </div>
           </div>
 
@@ -575,7 +595,8 @@ export default function ProductList() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ) : !Array.isArray(filteredProducts) || filteredProducts.length === 0 ? (
+                  ) : !Array.isArray(filteredProducts) ||
+                    filteredProducts.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={9} className="text-center py-8">
                         <div className="flex flex-col items-center gap-2">
@@ -645,10 +666,14 @@ export default function ProductList() {
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-3 text-center">
-                          <span className="text-gray-600 dark:text-gray-300">{product.vat}%</span>
+                          <span className="text-gray-600 dark:text-gray-300">
+                            {product.vat}%
+                          </span>
                         </TableCell>
                         <TableCell className="px-4 py-3 text-center">
-                          <span className="text-gray-600 dark:text-gray-300">{product.sd}%</span>
+                          <span className="text-gray-600 dark:text-gray-300">
+                            {product.sd}%
+                          </span>
                         </TableCell>
                         <TableCell className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center gap-1">
@@ -696,10 +721,16 @@ export default function ProductList() {
               </span>
               <div className="flex flex-wrap gap-4">
                 <span>
-                  Categories: <strong className="text-blue-600 dark:text-blue-400">{stats.totalCategories}</strong>
+                  Categories:{" "}
+                  <strong className="text-blue-600 dark:text-blue-400">
+                    {stats.totalCategories}
+                  </strong>
                 </span>
                 <span>
-                  Units: <strong className="text-purple-600 dark:text-purple-400">{stats.totalUnits}</strong>
+                  Units:{" "}
+                  <strong className="text-purple-600 dark:text-purple-400">
+                    {stats.totalUnits}
+                  </strong>
                 </span>
               </div>
             </div>

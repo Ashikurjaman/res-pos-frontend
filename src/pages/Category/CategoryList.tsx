@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router";
 import {
@@ -40,7 +40,9 @@ export default function CategoryList() {
   const [categories, setCategories] = useState<CategoryType[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [filteredCategories, setFilteredCategories] = useState<CategoryType[]>([]);
+  const [filteredCategories, setFilteredCategories] = useState<CategoryType[]>(
+    [],
+  );
 
   // Check authentication
   useEffect(() => {
@@ -71,13 +73,17 @@ export default function CategoryList() {
 
   // Get auth token
   const getAuthToken = useCallback(() => {
-    return localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+    return (
+      localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
+    );
   }, []);
 
   const fetchCategories = useCallback(async () => {
     try {
       setLoading(true);
       const token = getAuthToken();
+
+      console.log("🔍 Fetching categories...");
 
       const response = await axios.get(`${API_CONFIG.baseURL}/category`, {
         headers: {
@@ -86,15 +92,29 @@ export default function CategoryList() {
         },
       });
 
+      console.log("📥 Categories response:", response.data);
+
       let categoriesData = [];
 
       if (Array.isArray(response.data)) {
         categoriesData = response.data;
-      } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
+      } else if (
+        response.data &&
+        response.data.data &&
+        Array.isArray(response.data.data)
+      ) {
         categoriesData = response.data.data;
-      } else if (response.data && response.data.categories && Array.isArray(response.data.categories)) {
+      } else if (
+        response.data &&
+        response.data.categories &&
+        Array.isArray(response.data.categories)
+      ) {
         categoriesData = response.data.categories;
-      } else if (response.data && response.data.status === "success" && response.data.data) {
+      } else if (
+        response.data &&
+        response.data.status === "success" &&
+        response.data.data
+      ) {
         categoriesData = response.data.data;
       } else {
         const values = Object.values(response.data || {});
@@ -104,10 +124,12 @@ export default function CategoryList() {
         }
       }
 
+      console.log("✅ Processed categories:", categoriesData.length);
+
       setCategories(categoriesData);
       setFilteredCategories(categoriesData);
     } catch (error: any) {
-      console.error("Error fetching categories:", error);
+      console.error("❌ Error fetching categories:", error);
 
       if (error.response?.status === 401) {
         Swal.fire({
@@ -142,138 +164,150 @@ export default function CategoryList() {
     }
   }, [isAuthenticated, fetchCategories]);
 
-  const handleEdit = useCallback((id: number) => {
-    navigate(`/category-edit/${id}`);
-  }, [navigate]);
+  const handleEdit = useCallback(
+    (id: number) => {
+      navigate(`/category-edit/${id}`);
+    },
+    [navigate],
+  );
 
-  const handleView = useCallback((id: number) => {
-    navigate(`/category/${id}`);
-  }, [navigate]);
+  const handleView = useCallback(
+    (id: number) => {
+      navigate(`/category/${id}`);
+    },
+    [navigate],
+  );
 
-  const handleDelete = useCallback(async (id: number, categoryName: string) => {
-    const result = await Swal.fire({
-      title: "Delete Category?",
-      text: `Are you sure you want to delete "${categoryName}"?`,
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#ef4444",
-      cancelButtonColor: "#6b7280",
-      confirmButtonText: "Yes, delete it",
-      cancelButtonText: "Cancel",
-    });
-
-    if (!result.isConfirmed) return;
-
-    try {
-      const token = getAuthToken();
-
-      await axios.delete(`${API_CONFIG.baseURL}/category/${id}`, {
-        headers: {
-          Authorization: token ? `Bearer ${token}` : "",
-        },
+  const handleDelete = useCallback(
+    async (id: number, categoryName: string) => {
+      const result = await Swal.fire({
+        title: "Delete Category?",
+        text: `Are you sure you want to delete "${categoryName}"?`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#ef4444",
+        cancelButtonColor: "#6b7280",
+        confirmButtonText: "Yes, delete it",
+        cancelButtonText: "Cancel",
       });
 
-      setCategories((prev) => prev.filter((c) => c.id !== id));
-      setFilteredCategories((prev) => prev.filter((c) => c.id !== id));
+      if (!result.isConfirmed) return;
 
-      Swal.fire({
-        icon: "success",
-        title: "Deleted!",
-        text: "Category deleted successfully.",
-        timer: 2000,
-        showConfirmButton: false,
-        position: "top-end",
-        toast: true,
-      });
-    } catch (error: any) {
-      console.error("Error deleting category:", error);
+      try {
+        const token = getAuthToken();
 
-      if (error.response?.status === 401) {
-        Swal.fire({
-          icon: "error",
-          title: "Session Expired",
-          text: "Your session has expired. Please login again.",
-          confirmButtonColor: "#3b82f6",
-        }).then(() => {
-          localStorage.removeItem("authToken");
-          sessionStorage.removeItem("authToken");
-          navigate("/signin");
-        });
-        return;
-      }
-
-      Swal.fire({
-        icon: "error",
-        title: "Delete Failed!",
-        text: error.response?.data?.message || "Failed to delete category.",
-        confirmButtonColor: "#3b82f6",
-      });
-    }
-  }, [getAuthToken, navigate]);
-
-  const handleRestore = useCallback(async (id: number, categoryName: string) => {
-    const result = await Swal.fire({
-      title: "Restore Category?",
-      text: `Are you sure you want to restore "${categoryName}"?`,
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonColor: "#3b82f6",
-      cancelButtonColor: "#6b7280",
-      confirmButtonText: "Yes, restore",
-      cancelButtonText: "Cancel",
-    });
-
-    if (!result.isConfirmed) return;
-
-    try {
-      const token = getAuthToken();
-
-      await axios.post(
-        `${API_CONFIG.baseURL}/category/${id}/restore`,
-        {},
-        {
+        await axios.delete(`${API_CONFIG.baseURL}/category/${id}`, {
           headers: {
             Authorization: token ? `Bearer ${token}` : "",
           },
+        });
+
+        setCategories((prev) => prev.filter((c) => c.id !== id));
+        setFilteredCategories((prev) => prev.filter((c) => c.id !== id));
+
+        Swal.fire({
+          icon: "success",
+          title: "Deleted!",
+          text: "Category deleted successfully.",
+          timer: 2000,
+          showConfirmButton: false,
+          position: "top-end",
+          toast: true,
+        });
+      } catch (error: any) {
+        console.error("❌ Error deleting category:", error);
+
+        if (error.response?.status === 401) {
+          Swal.fire({
+            icon: "error",
+            title: "Session Expired",
+            text: "Your session has expired. Please login again.",
+            confirmButtonColor: "#3b82f6",
+          }).then(() => {
+            localStorage.removeItem("authToken");
+            sessionStorage.removeItem("authToken");
+            navigate("/signin");
+          });
+          return;
         }
-      );
 
-      fetchCategories();
-
-      Swal.fire({
-        icon: "success",
-        title: "Restored!",
-        text: "Category restored successfully.",
-        timer: 2000,
-        showConfirmButton: false,
-        position: "top-end",
-        toast: true,
-      });
-    } catch (error: any) {
-      console.error("Error restoring category:", error);
-
-      if (error.response?.status === 401) {
         Swal.fire({
           icon: "error",
-          title: "Session Expired",
-          text: "Your session has expired. Please login again.",
+          title: "Delete Failed!",
+          text: error.response?.data?.message || "Failed to delete category.",
           confirmButtonColor: "#3b82f6",
-        }).then(() => {
-          localStorage.removeItem("authToken");
-          sessionStorage.removeItem("authToken");
-          navigate("/signin");
         });
-        return;
       }
+    },
+    [getAuthToken, navigate],
+  );
 
-      Swal.fire({
-        icon: "error",
-        title: "Restore Failed!",
-        text: error.response?.data?.message || "Failed to restore category.",
+  const handleRestore = useCallback(
+    async (id: number, categoryName: string) => {
+      const result = await Swal.fire({
+        title: "Restore Category?",
+        text: `Are you sure you want to restore "${categoryName}"?`,
+        icon: "question",
+        showCancelButton: true,
         confirmButtonColor: "#3b82f6",
+        cancelButtonColor: "#6b7280",
+        confirmButtonText: "Yes, restore",
+        cancelButtonText: "Cancel",
       });
-    }
-  }, [getAuthToken, navigate, fetchCategories]);
+
+      if (!result.isConfirmed) return;
+
+      try {
+        const token = getAuthToken();
+
+        await axios.post(
+          `${API_CONFIG.baseURL}/category/${id}/restore`,
+          {},
+          {
+            headers: {
+              Authorization: token ? `Bearer ${token}` : "",
+            },
+          },
+        );
+
+        fetchCategories();
+
+        Swal.fire({
+          icon: "success",
+          title: "Restored!",
+          text: "Category restored successfully.",
+          timer: 2000,
+          showConfirmButton: false,
+          position: "top-end",
+          toast: true,
+        });
+      } catch (error: any) {
+        console.error("❌ Error restoring category:", error);
+
+        if (error.response?.status === 401) {
+          Swal.fire({
+            icon: "error",
+            title: "Session Expired",
+            text: "Your session has expired. Please login again.",
+            confirmButtonColor: "#3b82f6",
+          }).then(() => {
+            localStorage.removeItem("authToken");
+            sessionStorage.removeItem("authToken");
+            navigate("/signin");
+          });
+          return;
+        }
+
+        Swal.fire({
+          icon: "error",
+          title: "Restore Failed!",
+          text: error.response?.data?.message || "Failed to restore category.",
+          confirmButtonColor: "#3b82f6",
+        });
+      }
+    },
+    [getAuthToken, navigate, fetchCategories],
+  );
 
   const getStatusBadge = useCallback((status: string | number) => {
     const statusValue = status?.toString() || "1";
@@ -283,10 +317,16 @@ export default function CategoryList() {
           Active
         </span>
       );
-    } else {
+    } else if (statusValue === "0" || statusValue === "inactive") {
       return (
         <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
           Inactive
+        </span>
+      );
+    } else {
+      return (
+        <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400">
+          {status}
         </span>
       );
     }
@@ -300,6 +340,20 @@ export default function CategoryList() {
   const handleClearSearch = useCallback(() => {
     setSearchTerm("");
   }, []);
+
+  // Memoized stats
+  const stats = useMemo(() => {
+    const categoryArray = Array.isArray(categories) ? categories : [];
+    return {
+      total: categoryArray.length,
+      active: categoryArray.filter(
+        (c) => c.status?.toString() === "1" || c.status === "active",
+      ).length,
+      inactive: categoryArray.filter(
+        (c) => c.status?.toString() === "0" || c.status === "inactive",
+      ).length,
+    };
+  }, [categories]);
 
   // Show loading while checking authentication
   if (authLoading) {
@@ -316,15 +370,6 @@ export default function CategoryList() {
   if (!isAuthenticated) {
     return null;
   }
-
-  // Count active/inactive categories
-  const activeCount = categories.filter(
-    (c) => c.status?.toString() === "1" || c.status === "active",
-  ).length;
-
-  const inactiveCount = categories.filter(
-    (c) => c.status?.toString() === "0" || c.status === "inactive",
-  ).length;
 
   return (
     <>
@@ -357,7 +402,11 @@ export default function CategoryList() {
                 disabled={loading}
                 aria-label="Refresh categories"
               >
-                <RefreshCw size={16} className={loading ? "animate-spin" : ""} aria-hidden="true" />
+                <RefreshCw
+                  size={16}
+                  className={loading ? "animate-spin" : ""}
+                  aria-hidden="true"
+                />
                 Refresh
               </button>
               <button
@@ -370,25 +419,66 @@ export default function CategoryList() {
             </div>
           </div>
 
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+              <p className="text-sm text-blue-600 dark:text-blue-400">
+                Total Categories
+              </p>
+              <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                {stats.total}
+              </p>
+            </div>
+            <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+              <p className="text-sm text-green-600 dark:text-green-400">
+                Active
+              </p>
+              <p className="text-2xl font-bold text-green-700 dark:text-green-300">
+                {stats.active}
+              </p>
+            </div>
+            <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
+              <p className="text-sm text-red-600 dark:text-red-400">Inactive</p>
+              <p className="text-2xl font-bold text-red-700 dark:text-red-300">
+                {stats.inactive}
+              </p>
+            </div>
+          </div>
+
           {/* Table */}
           <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
             <div className="max-w-full overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50 dark:bg-gray-700">
-                    <TableCell isHeader className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <TableCell
+                      isHeader
+                      className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                    >
                       SL
                     </TableCell>
-                    <TableCell isHeader className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <TableCell
+                      isHeader
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                    >
                       Category Name
                     </TableCell>
-                    <TableCell isHeader className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <TableCell
+                      isHeader
+                      className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                    >
                       Status
                     </TableCell>
-                    <TableCell isHeader className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <TableCell
+                      isHeader
+                      className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                    >
                       Created At
                     </TableCell>
-                    <TableCell isHeader className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <TableCell
+                      isHeader
+                      className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                    >
                       Actions
                     </TableCell>
                   </TableRow>
@@ -399,17 +489,25 @@ export default function CategoryList() {
                     <TableRow>
                       <TableCell colSpan={5} className="text-center py-8">
                         <div className="flex items-center justify-center gap-2">
-                          <Loader2 className="w-5 h-5 animate-spin text-blue-500" aria-hidden="true" />
-                          <span className="text-gray-500 dark:text-gray-400">Loading categories...</span>
+                          <Loader2
+                            className="w-5 h-5 animate-spin text-blue-500"
+                            aria-hidden="true"
+                          />
+                          <span className="text-gray-500 dark:text-gray-400">
+                            Loading categories...
+                          </span>
                         </div>
                       </TableCell>
                     </TableRow>
-                  ) : !Array.isArray(filteredCategories) || filteredCategories.length === 0 ? (
+                  ) : !Array.isArray(filteredCategories) ||
+                    filteredCategories.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center py-8">
                         <div className="flex flex-col items-center gap-2">
                           <p className="text-gray-500 dark:text-gray-400">
-                            {searchTerm ? "No categories match your search" : "No categories found"}
+                            {searchTerm
+                              ? "No categories match your search"
+                              : "No categories found"}
                           </p>
                           {searchTerm && (
                             <button
@@ -433,7 +531,10 @@ export default function CategoryList() {
                     </TableRow>
                   ) : (
                     filteredCategories.map((category, index) => (
-                      <TableRow key={category.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                      <TableRow
+                        key={category.id}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                      >
                         <TableCell className="px-4 py-3 text-center text-gray-500 dark:text-gray-400">
                           {index + 1}
                         </TableCell>
@@ -447,11 +548,14 @@ export default function CategoryList() {
                         </TableCell>
                         <TableCell className="px-4 py-3 text-center text-sm text-gray-500 dark:text-gray-400">
                           {category.created_at
-                            ? new Date(category.created_at).toLocaleDateString("en-US", {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                              })
+                            ? new Date(category.created_at).toLocaleDateString(
+                                "en-US",
+                                {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                },
+                              )
                             : "-"}
                         </TableCell>
                         <TableCell className="px-4 py-3 text-center">
@@ -472,9 +576,15 @@ export default function CategoryList() {
                             >
                               <Edit size={18} aria-hidden="true" />
                             </button>
-                            {category.status?.toString() === "0" || category.status === "inactive" ? (
+                            {category.status?.toString() === "0" ||
+                            category.status === "inactive" ? (
                               <button
-                                onClick={() => handleRestore(category.id, category.category_name)}
+                                onClick={() =>
+                                  handleRestore(
+                                    category.id,
+                                    category.category_name,
+                                  )
+                                }
                                 className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-green-500"
                                 title="Restore Category"
                                 aria-label={`Restore ${category.category_name}`}
@@ -484,7 +594,12 @@ export default function CategoryList() {
                             ) : (
                               <button
                                 className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
-                                onClick={() => handleDelete(category.id, category.category_name)}
+                                onClick={() =>
+                                  handleDelete(
+                                    category.id,
+                                    category.category_name,
+                                  )
+                                }
                                 title="Delete Category"
                                 aria-label={`Delete ${category.category_name}`}
                               >
@@ -502,21 +617,29 @@ export default function CategoryList() {
           </div>
 
           {/* Footer */}
-          {Array.isArray(filteredCategories) && filteredCategories.length > 0 && (
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mt-4">
-              <span>
-                Showing {filteredCategories.length} of {categories.length} categories
-              </span>
-              <div className="flex gap-4">
+          {Array.isArray(filteredCategories) &&
+            filteredCategories.length > 0 && (
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mt-4">
                 <span>
-                  Active: <strong className="text-green-600 dark:text-green-400">{activeCount}</strong>
+                  Showing {filteredCategories.length} of {categories.length}{" "}
+                  categories
                 </span>
-                <span>
-                  Inactive: <strong className="text-red-600 dark:text-red-400">{inactiveCount}</strong>
-                </span>
+                <div className="flex gap-4">
+                  <span>
+                    Active:{" "}
+                    <strong className="text-green-600 dark:text-green-400">
+                      {stats.active}
+                    </strong>
+                  </span>
+                  <span>
+                    Inactive:{" "}
+                    <strong className="text-red-600 dark:text-red-400">
+                      {stats.inactive}
+                    </strong>
+                  </span>
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </ComponentCard>
       </div>
     </>

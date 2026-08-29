@@ -25,13 +25,11 @@ export interface Product {
 }
 
 export interface CreateProductData {
-  data: {
-    next_code: string;
-    categories: Category[];
-    units: Unit[];
-    suppliers: Supplier[];
-    food_types: FoodType[];
-  };
+  next_code: string;
+  categories: Category[];
+  units: Unit[];
+  suppliers: Supplier[];
+  food_types: FoodType[];
 }
 
 interface Category {
@@ -60,43 +58,76 @@ class ProductService {
   private endpoint = "products";
 
   async getCreateData(): Promise<CreateProductData> {
-    // ✅ GET request to fetch product creation data
-    const response = await this.api.get(`${this.endpoint}/create-data`);
-    return response;
+    try {
+      const response = await this.api.get(`${this.endpoint}/create-data`);
+      console.log("📥 ProductService response:", response);
+
+      // ✅ Return the response directly
+      return response;
+    } catch (error) {
+      console.error("❌ ProductService error:", error);
+      throw error;
+    }
   }
 
   async getAll(): Promise<Product[]> {
-    return this.api.get(this.endpoint);
+    const response = await this.api.get(this.endpoint);
+    return response.data || response;
   }
 
   async getById(id: number): Promise<Product> {
-    return this.api.get(`${this.endpoint}/${id}`);
+    const response = await this.api.get(`${this.endpoint}/${id}`);
+    return response.data || response;
   }
 
   async create(data: FormData): Promise<Product> {
-    return this.api.post(this.endpoint, data, {
+    const response = await this.api.post(this.endpoint, data, {
       headers: { "Content-Type": "multipart/form-data" },
     });
+    return response.data || response;
   }
 
   async update(id: number, data: FormData): Promise<Product> {
-    return this.api.post(`${this.endpoint}/${id}?_method=PUT`, data, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const response = await this.api.post(
+      `${this.endpoint}/${id}?_method=PUT`,
+      data,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
+    return response.data || response;
   }
 
   async delete(id: number): Promise<void> {
-    return this.api.delete(`${this.endpoint}/${id}`);
+    await this.api.delete(`${this.endpoint}/${id}`);
   }
 
   async restore(id: number): Promise<Product> {
-    return this.api.post(`${this.endpoint}/${id}/restore`);
+    const response = await this.api.post(`${this.endpoint}/${id}/restore`);
+    return response.data || response;
   }
 
-  async getByCategory(categoryId: number, outletId?: number): Promise<Product[]> {
-    return this.api.get(`${this.endpoint}/by-category`, {
+  async getByCategory(
+    categoryId: number,
+    outletId?: number,
+  ): Promise<Product[]> {
+    const response = await this.api.get(`${this.endpoint}/by-category`, {
       params: { category_id: categoryId, outlet_id: outletId || 1 },
     });
+    return response.data || response;
+  }
+
+  // ✅ Add stock management methods
+  async getWithStock(): Promise<any[]> {
+    const response = await this.api.get(`${this.endpoint}/with-stock`);
+    return response.data || response;
+  }
+
+  async updateStock(id: number, stock: number): Promise<any> {
+    const response = await this.api.put(`${this.endpoint}/${id}/stock`, {
+      stock,
+    });
+    return response.data || response;
   }
 }
 

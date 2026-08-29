@@ -1,5 +1,7 @@
 // src/pages/Company/CompanyForm.tsx
 import { useState, useCallback, useEffect } from "react";
+import { useNavigate, useParams } from "react-router";
+import { useAuth } from "../../hooks/useAuth";
 import ComponentCard from "../../components/common/ComponentCard";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
@@ -7,11 +9,16 @@ import Input from "../../components/form/input/InputField";
 import Label from "../../components/form/Label";
 import Select from "../../components/form/Select";
 import Button from "../../components/ui/button/Button";
-import axios from "axios";
+import CompanyService from "../../services/CompanyService";
 import Swal from "sweetalert2";
-import { Loader2, Save, X, CheckCircle, AlertCircle } from "lucide-react";
-import { API_CONFIG } from "../../config/api";
-import { useNavigate, useParams } from "react-router";
+import {
+  Loader2,
+  Save,
+  X,
+  CheckCircle,
+  AlertCircle,
+  ArrowLeft,
+} from "lucide-react";
 
 type OptionType = { value: string; label: string };
 
@@ -29,6 +36,7 @@ interface CompanyFormData {
 export default function CompanyForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const isEdit = !!id;
 
   const [formData, setFormData] = useState<CompanyFormData>({
@@ -44,6 +52,16 @@ export default function CompanyForm() {
   const [loading, setLoading] = useState<boolean>(false);
   const [fetching, setFetching] = useState<boolean>(isEdit);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [originalData, setOriginalData] = useState<CompanyFormData | null>(
+    null,
+  );
+
+  // Check authentication
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      navigate("/signin");
+    }
+  }, [isAuthenticated, authLoading, navigate]);
 
   // Options
   const payTypeOptions: OptionType[] = [
@@ -58,21 +76,18 @@ export default function CompanyForm() {
 
   // Fetch company data if editing
   useEffect(() => {
-    if (isEdit && id) {
+    if (isEdit && id && isAuthenticated) {
       fetchCompany(id);
     }
-  }, [isEdit, id]);
+  }, [isEdit, id, isAuthenticated]);
 
   const fetchCompany = useCallback(
     async (companyId: string) => {
       try {
         setFetching(true);
-        const response = await axios.get(
-          `${API_CONFIG.baseURL}/api/companies/${companyId}`,
-        );
-        const data = response.data.data;
+        const data = await CompanyService.getById(parseInt(companyId));
 
-        setFormData({
+        const formDataObj = {
           company_name: data.company_name || "",
           outlet_name: data.outlet_name || "",
           address: data.address || "",
@@ -83,23 +98,31 @@ export default function CompanyForm() {
             payTypeOptions.find((p) => p.value === String(data.pay_type)) ||
             payTypeOptions[0],
           validity:
-            validityOptions.find(
-              (v) => v.value === String(data.validity ? 1 : 0),
-            ) || validityOptions[0],
-        });
-      } catch (error) {
+            validityOptions.find((v) => v.value === String(data.validity)) ||
+            validityOptions[0],
+        };
+
+        setFormData(formDataObj);
+        setOriginalData(formDataObj);
+      } catch (error: any) {
         console.error("Error fetching company:", error);
+
+        if (error.status === 401) {
+          navigate("/signin");
+          return;
+        }
+
         Swal.fire({
           icon: "error",
           title: "Error!",
-          text: "Failed to load company data.",
+          text: error.message || "Failed to load company data.",
           confirmButtonColor: "#3b82f6",
         });
       } finally {
         setFetching(false);
       }
     },
-    [id],
+    [navigate],
   );
 
   // Handle input changes
@@ -134,19 +157,26 @@ export default function CompanyForm() {
 
     if (!formData.company_name.trim()) {
       newErrors.company_name = "Company name is required";
+    } else if (formData.company_name.trim().length < 2) {
+      newErrors.company_name = "Company name must be at least 2 characters";
     }
+
     if (!formData.outlet_name.trim()) {
       newErrors.outlet_name = "Outlet name is required";
     }
+
     if (!formData.address.trim()) {
       newErrors.address = "Address is required";
     }
+
     if (!formData.contact_no.trim()) {
       newErrors.contact_no = "Contact number is required";
     }
+
     if (!formData.slogan.trim()) {
       newErrors.slogan = "Slogan is required";
     }
+
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Please enter a valid email address";
     }
@@ -158,6 +188,18 @@ export default function CompanyForm() {
   // Save company
   const handleSave = useCallback(async () => {
     if (!validate()) return;
+
+    if (!isAuthenticated) {
+      Swal.fire({
+        icon: "warning",
+        title: "Not Authenticated",
+        text: "Please login to save company.",
+        confirmButtonColor: "#3b82f6",
+      }).then(() => {
+        navigate("/signin");
+      });
+      return;
+    }
 
     setLoading(true);
     try {
@@ -174,36 +216,44 @@ export default function CompanyForm() {
 
       let response;
       if (isEdit) {
-        response = await axios.put(
-          `${API_CONFIG.baseURL}/api/companies/${id}`,
-          payload,
-        );
+        response = await CompanyService.update(parseInt(id!), payload);
+        Swal.fire({
+          icon: "success",
+          title: "Company Updated!",
+          text: "Company updated successfully!",
+          timer: 2000,
+          showConfirmButton: false,
+          position: "top-end",
+          toast: true,
+        });
       } else {
-        response = await axios.post(
-          `${API_CONFIG.baseURL}/api/companies`,
-          payload,
-        );
+        response = await CompanyService.create(payload);
+        Swal.fire({
+          icon: "success",
+          title: "Company Created!",
+          text: "Company created successfully!",
+          timer: 2000,
+          showConfirmButton: false,
+          position: "top-end",
+          toast: true,
+        });
       }
-
-      Swal.fire({
-        icon: "success",
-        title: isEdit ? "Company Updated!" : "Company Created!",
-        text: response.data.message || "Operation successful!",
-        timer: 2000,
-        showConfirmButton: false,
-        position: "top-end",
-      });
 
       navigate("/companies");
     } catch (error: any) {
       console.error("Error saving company:", error);
 
+      if (error.status === 401) {
+        navigate("/signin");
+        return;
+      }
+
       let errorMessage = "Failed to save company!";
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.response?.data?.errors) {
-        const errorList = Object.values(error.response.data.errors).flat();
+      if (error.errors) {
+        const errorList = Object.values(error.errors).flat();
         errorMessage = errorList.join(", ");
+      } else if (error.message) {
+        errorMessage = error.message;
       }
 
       Swal.fire({
@@ -215,7 +265,7 @@ export default function CompanyForm() {
     } finally {
       setLoading(false);
     }
-  }, [formData, validate, isEdit, id, navigate]);
+  }, [formData, validate, isEdit, id, navigate, isAuthenticated]);
 
   // Reset form
   const handleReset = useCallback(() => {
@@ -230,6 +280,8 @@ export default function CompanyForm() {
         text: "There is no data to reset.",
         timer: 2000,
         showConfirmButton: false,
+        position: "top-end",
+        toast: true,
       });
       return;
     }
@@ -261,10 +313,50 @@ export default function CompanyForm() {
           title: "Form Reset!",
           timer: 1500,
           showConfirmButton: false,
+          position: "top-end",
+          toast: true,
         });
       }
     });
   }, [formData]);
+
+  const handleBack = useCallback(() => {
+    // Check for unsaved changes
+    if (JSON.stringify(formData) !== JSON.stringify(originalData)) {
+      Swal.fire({
+        title: "Unsaved Changes",
+        text: "You have unsaved changes. Are you sure you want to leave?",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#ef4444",
+        cancelButtonColor: "#6b7280",
+        confirmButtonText: "Yes, leave",
+        cancelButtonText: "Stay",
+      }).then((result) => {
+        if (result.isConfirmed) {
+          navigate("/companies");
+        }
+      });
+    } else {
+      navigate("/companies");
+    }
+  }, [formData, originalData, navigate]);
+
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-3 sm:p-4 md:p-6 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
+          <p className="text-gray-500 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   if (fetching) {
     return (
@@ -274,8 +366,13 @@ export default function CompanyForm() {
         />
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
-            <p className="text-gray-500 text-sm">Loading company data...</p>
+            <Loader2
+              className="w-10 h-10 animate-spin text-blue-500"
+              aria-hidden="true"
+            />
+            <p className="text-gray-500 dark:text-gray-400 text-sm">
+              Loading company data...
+            </p>
           </div>
         </div>
       </div>
@@ -511,8 +608,17 @@ export default function CompanyForm() {
                 <div className="pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row justify-end gap-3">
                   <Button
                     type="button"
-                    onClick={handleReset}
+                    onClick={handleBack}
                     className="flex items-center justify-center gap-2 bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 text-white px-4 sm:px-6 py-2.5 rounded-lg transition-colors w-full sm:w-auto order-2 sm:order-1"
+                    disabled={loading}
+                  >
+                    <ArrowLeft size={18} aria-hidden="true" />
+                    Back to List
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleReset}
+                    className="flex items-center justify-center gap-2 bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 text-white px-4 sm:px-6 py-2.5 rounded-lg transition-colors w-full sm:w-auto order-3 sm:order-2"
                     disabled={loading}
                   >
                     <X size={18} aria-hidden="true" />
@@ -520,7 +626,7 @@ export default function CompanyForm() {
                   </Button>
                   <Button
                     type="submit"
-                    className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white px-4 sm:px-6 py-2.5 rounded-lg transition-colors min-w-[120px] w-full sm:w-auto order-1 sm:order-2"
+                    className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white px-4 sm:px-6 py-2.5 rounded-lg transition-colors min-w-[120px] w-full sm:w-auto order-1 sm:order-3"
                     disabled={loading}
                   >
                     {loading ? (
