@@ -42,7 +42,7 @@ export default function SupplierList() {
   }, [isAuthenticated, authLoading, navigate]);
 
   useEffect(() => {
-    if (!Array.isArray(suppliers)) {
+    if (!Array.isArray(suppliers) || suppliers.length === 0) {
       setFilteredSuppliers([]);
       return;
     }
@@ -53,9 +53,9 @@ export default function SupplierList() {
       const term = searchTerm.toLowerCase().trim();
       const filtered = suppliers.filter(
         (supplier) =>
-          supplier.supplier_name.toLowerCase().includes(term) ||
-          supplier.username.toLowerCase().includes(term) ||
-          supplier.contact_no.includes(term) ||
+          supplier.supplier_name?.toLowerCase().includes(term) ||
+          supplier.username?.toLowerCase().includes(term) ||
+          supplier.contact_no?.includes(term) ||
           (supplier.address && supplier.address.toLowerCase().includes(term))
       );
       setFilteredSuppliers(filtered);
@@ -65,11 +65,16 @@ export default function SupplierList() {
   const fetchSuppliers = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await SupplierService.getActive();
-      setSuppliers(data);
-      setFilteredSuppliers(data);
+      console.log("🔍 Fetching suppliers...");
+
+      const data = await SupplierService.getAll();
+      console.log("📥 Suppliers data:", data);
+
+      const supplierArray = Array.isArray(data) ? data : [];
+      setSuppliers(supplierArray);
+      setFilteredSuppliers(supplierArray);
     } catch (error: any) {
-      console.error("Error fetching suppliers:", error);
+      console.error("❌ Error fetching suppliers:", error);
       if (error.status === 401) {
         navigate("/signin");
         return;
@@ -162,6 +167,13 @@ export default function SupplierList() {
       });
     }
   }, [fetchSuppliers]);
+
+  // ✅ Helper function to safely format currency
+  const formatCurrency = useCallback((amount: any): string => {
+    const num = parseFloat(amount);
+    if (isNaN(num)) return "0.00";
+    return num.toFixed(2);
+  }, []);
 
   const stats = useMemo(() => {
     const supplierArray = Array.isArray(suppliers) ? suppliers : [];
@@ -285,7 +297,7 @@ export default function SupplierList() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ) : !Array.isArray(filteredSuppliers) || filteredSuppliers.length === 0 ? (
+                  ) : filteredSuppliers.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center py-8">
                         <div className="flex flex-col items-center gap-2">
@@ -305,89 +317,94 @@ export default function SupplierList() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredSuppliers.map((supplier, index) => (
-                      <TableRow key={supplier.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                        <TableCell className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                          {index + 1}
-                        </TableCell>
-                        <TableCell className="px-4 py-3">
-                          <div>
-                            <div className="font-medium text-gray-900 dark:text-white">
-                              {supplier.supplier_name}
+                    filteredSuppliers.map((supplier, index) => {
+                      // ✅ Safely get due balance
+                      const dueBalance = parseFloat(supplier.due_balance as any) || 0;
+
+                      return (
+                        <TableRow key={supplier.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                          <TableCell className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                            {index + 1}
+                          </TableCell>
+                          <TableCell className="px-4 py-3">
+                            <div>
+                              <div className="font-medium text-gray-900 dark:text-white">
+                                {supplier.supplier_name}
+                              </div>
+                              {supplier.address && (
+                                <div className="text-sm text-gray-500 dark:text-gray-400">
+                                  {supplier.address}
+                                </div>
+                              )}
                             </div>
-                            {supplier.address && (
-                              <div className="text-sm text-gray-500 dark:text-gray-400">
-                                {supplier.address}
+                          </TableCell>
+                          <TableCell className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+                            {supplier.username}
+                          </TableCell>
+                          <TableCell className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+                            {supplier.contact_no}
+                            {supplier.bin_nid && (
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                                BIN: {supplier.bin_nid}
                               </div>
                             )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
-                          {supplier.username}
-                        </TableCell>
-                        <TableCell className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
-                          {supplier.contact_no}
-                          {supplier.bin_nid && (
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
-                              BIN: {supplier.bin_nid}
+                          </TableCell>
+                          <TableCell className="px-4 py-3 text-center">
+                            <span className={`font-semibold ${dueBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                              ৳{formatCurrency(dueBalance)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="px-4 py-3 text-center">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              supplier.validity === 1
+                                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                                : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                            }`}>
+                              {supplier.validity === 1 ? "Active" : "Inactive"}
+                            </span>
+                          </TableCell>
+                          <TableCell className="px-4 py-3 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                                onClick={() => navigate(`/suppliers/${supplier.id}`)}
+                                title="View"
+                                aria-label={`View ${supplier.supplier_name}`}
+                              >
+                                <Eye size={18} aria-hidden="true" />
+                              </button>
+                              <button
+                                className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                                onClick={() => navigate(`/suppliers/edit/${supplier.id}`)}
+                                title="Edit"
+                                aria-label={`Edit ${supplier.supplier_name}`}
+                              >
+                                <Edit size={18} aria-hidden="true" />
+                              </button>
+                              {supplier.validity === 0 ? (
+                                <button
+                                  onClick={() => handleRestore(supplier)}
+                                  className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors"
+                                  title="Restore"
+                                  aria-label={`Restore ${supplier.supplier_name}`}
+                                >
+                                  <RefreshCw size={18} aria-hidden="true" />
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleDelete(supplier)}
+                                  className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                                  title="Delete"
+                                  aria-label={`Delete ${supplier.supplier_name}`}
+                                >
+                                  <Trash2 size={18} aria-hidden="true" />
+                                </button>
+                              )}
                             </div>
-                          )}
-                        </TableCell>
-                        <TableCell className="px-4 py-3 text-center">
-                          <span className={`font-semibold ${(supplier.due_balance || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                            ৳{(supplier.due_balance || 0).toFixed(2)}
-                          </span>
-                        </TableCell>
-                        <TableCell className="px-4 py-3 text-center">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            supplier.validity === 1
-                              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                              : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                          }`}>
-                            {supplier.validity === 1 ? "Active" : "Inactive"}
-                          </span>
-                        </TableCell>
-                        <TableCell className="px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <button
-                              className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
-                              onClick={() => navigate(`/suppliers/${supplier.id}`)}
-                              title="View"
-                              aria-label={`View ${supplier.supplier_name}`}
-                            >
-                              <Eye size={18} aria-hidden="true" />
-                            </button>
-                            <button
-                              className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
-                              onClick={() => navigate(`/suppliers/edit/${supplier.id}`)}
-                              title="Edit"
-                              aria-label={`Edit ${supplier.supplier_name}`}
-                            >
-                              <Edit size={18} aria-hidden="true" />
-                            </button>
-                            {supplier.validity === 0 ? (
-                              <button
-                                onClick={() => handleRestore(supplier)}
-                                className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors"
-                                title="Restore"
-                                aria-label={`Restore ${supplier.supplier_name}`}
-                              >
-                                <RefreshCw size={18} aria-hidden="true" />
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => handleDelete(supplier)}
-                                className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                                title="Delete"
-                                aria-label={`Delete ${supplier.supplier_name}`}
-                              >
-                                <Trash2 size={18} aria-hidden="true" />
-                              </button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
@@ -395,11 +412,19 @@ export default function SupplierList() {
           </div>
 
           {/* Footer */}
-          {Array.isArray(filteredSuppliers) && filteredSuppliers.length > 0 && (
+          {filteredSuppliers.length > 0 && (
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mt-4">
               <span>
-                Showing {filteredSuppliers.length} of {Array.isArray(suppliers) ? suppliers.length : 0} suppliers
+                Showing {filteredSuppliers.length} of {suppliers.length} suppliers
               </span>
+              <div className="flex flex-wrap gap-4">
+                <span>
+                  Active: <strong className="text-green-600 dark:text-green-400">{stats.active}</strong>
+                </span>
+                <span>
+                  Inactive: <strong className="text-red-600 dark:text-red-400">{stats.inactive}</strong>
+                </span>
+              </div>
             </div>
           )}
         </ComponentCard>

@@ -23,28 +23,77 @@ class SupplierService extends BaseService {
   }
 
   async getActive(): Promise<Supplier[]> {
-    const response = await this.api.get(this.endpoint);
-    return response;
+    try {
+      const response = await this.api.get(this.endpoint);
+      console.log("📥 Supplier getActive response:", response);
+
+      // ✅ Handle different response structures
+      let data = response;
+      if (response && response.data) {
+        data = response.data;
+      }
+
+      // If data is an array, return it
+      if (Array.isArray(data)) {
+        return data;
+      }
+
+      // If data has a data property that is an array
+      if (data && data.data && Array.isArray(data.data)) {
+        return data.data;
+      }
+
+      // If data has a suppliers property that is an array
+      if (data && data.suppliers && Array.isArray(data.suppliers)) {
+        return data.suppliers;
+      }
+
+      console.warn("⚠️ Unexpected response format:", response);
+      return [];
+    } catch (error) {
+      console.error("❌ Error in getActive:", error);
+      throw error;
+    }
   }
 
   async getAll(): Promise<Supplier[]> {
-    const response = await this.api.get(`${this.endpoint}/all`);
-    return response;
+    try {
+      const response = await this.api.get(`${this.endpoint}/all`);
+      console.log("📥 Supplier getAll response:", response);
+
+      let data = response;
+      if (response && response.data) {
+        data = response.data;
+      }
+
+      if (Array.isArray(data)) {
+        return data;
+      }
+
+      if (data && data.data && Array.isArray(data.data)) {
+        return data.data;
+      }
+
+      return [];
+    } catch (error) {
+      console.error("❌ Error in getAll:", error);
+      throw error;
+    }
   }
 
-  async getLedger(id: number): Promise<{ supplier: Supplier; ledgers: any[] }> {
-    const response = await this.api.get(`${this.endpoint}/${id}/ledger`);
-    return response;
+  async getById(id: number): Promise<Supplier> {
+    const response = await this.api.get(`${this.endpoint}/${id}`);
+    return response.data || response;
   }
 
   async create(data: any): Promise<Supplier> {
     const response = await this.api.post(this.endpoint, data);
-    return response;
+    return response.data || response;
   }
 
   async update(id: number, data: any): Promise<Supplier> {
     const response = await this.api.put(`${this.endpoint}/${id}`, data);
-    return response;
+    return response.data || response;
   }
 
   async delete(id: number): Promise<void> {
@@ -53,7 +102,12 @@ class SupplierService extends BaseService {
 
   async restore(id: number): Promise<Supplier> {
     const response = await this.api.post(`${this.endpoint}/${id}/restore`);
-    return response;
+    return response.data || response;
+  }
+
+  async getLedger(id: number): Promise<any> {
+    const response = await this.api.get(`${this.endpoint}/${id}/ledger`);
+    return response.data || response;
   }
 }
 

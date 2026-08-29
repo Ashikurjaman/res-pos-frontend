@@ -1,4 +1,5 @@
 // src/types/supplier.ts
+// src/type/supplier.ts
 export interface Supplier {
   id: number;
   entrydate: string;
@@ -13,8 +14,6 @@ export interface Supplier {
   validity: number;
   created_at: string;
   updated_at: string;
-  full_name?: string;
-  balance?: number;
 }
 
 export interface SupplierFormData {

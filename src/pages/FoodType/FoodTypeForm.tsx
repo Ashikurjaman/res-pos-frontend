@@ -10,7 +10,7 @@ import Label from "../../components/form/Label";
 import Select from "../../components/form/Select";
 import Button from "../../components/ui/button/Button";
 import FoodTypeService from "../../services/FoodTypeService";
-import { FoodTypeFormData } from "../../types/foodType";
+import { FoodTypeFormData } from "../../type/foodType";
 import Swal from "sweetalert2";
 import {
   Loader2,
