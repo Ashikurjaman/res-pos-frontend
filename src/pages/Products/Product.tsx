@@ -309,13 +309,22 @@ export default function Product() {
         if (key === "product_image" && value instanceof File) {
           formDataObj.append(key, value);
         } else if (key === "supplier_id" && Array.isArray(value)) {
-          if (value.length > 0) {
-            value.forEach((id) => {
-              formDataObj.append("supplier_id[]", id.toString());
-            });
-          }
-        } else if (key === "food_type_id" && value !== null && value !== undefined && value !== 0) {
+          value.forEach((id) =>
+            formDataObj.append("supplier_id[]", id.toString()),
+          );
+        } else if (
+          key === "food_type_id" &&
+          value !== null &&
+          value !== undefined &&
+          value !== 0
+        ) {
           formDataObj.append(key, value.toString());
+        } else if (key === "price") {
+          formDataObj.append("pur_price", value.toString()); // ✅ map price -> pur_price
+        } else if (key === "vat") {
+          formDataObj.append("vat_rate", value.toString()); // ✅ map vat -> vat_rate
+        } else if (key === "sd") {
+          formDataObj.append("sd_rate", value.toString()); // ✅ map sd -> sd_rate
         } else if (value !== null && value !== undefined && value !== "") {
           formDataObj.append(key, value.toString());
         }

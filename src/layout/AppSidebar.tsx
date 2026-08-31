@@ -34,6 +34,10 @@ import {
   ClipboardCheck,
   Utensils,
   Layers,
+  GitBranch,
+  GitPullRequest,
+  CheckSquare,
+  ArrowLeftRight,
 } from "lucide-react";
 
 type NavItem = {
@@ -62,6 +66,15 @@ const AppSidebar: React.FC = () => {
     [location.pathname],
   );
 
+  // Check if any submenu item is active
+  const isSubmenuActive = useCallback(
+    (subItems?: { name: string; path: string }[]) => {
+      if (!subItems) return false;
+      return subItems.some((item) => isActive(item.path));
+    },
+    [isActive],
+  );
+
   // Main Navigation Items
   const navItems: NavItem[] = [
     {
@@ -84,6 +97,16 @@ const AppSidebar: React.FC = () => {
         { name: "Product Create", path: "/products" },
         { name: "Product List", path: "/products-list" },
         { name: "Stock Management", path: "/stock-management" },
+      ],
+    },
+    {
+      icon: <ArrowLeftRight size={20} />,
+      name: "Stock Transfer",
+      subItems: [
+        { name: "New Request", path: "/stock-request/new" },
+        { name: "Requests", path: "/stock-requests" },
+        { name: "Despatches", path: "/stock-despatches" },
+        { name: "Receives", path: "/stock-receives" },
       ],
     },
     {
@@ -246,95 +269,101 @@ const AppSidebar: React.FC = () => {
 
   const renderMenuItems = (items: NavItem[], menuType: "main" | "others") => (
     <ul className="flex flex-col gap-1">
-      {items.map((nav, index) => (
-        <li key={nav.name}>
-          {nav.subItems ? (
-            <button
-              onClick={() => handleSubmenuToggle(index, menuType)}
-              className={`menu-item group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                openSubmenu?.type === menuType && openSubmenu?.index === index
-                  ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
-                  : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-              } ${!isExpanded && !isHovered ? "lg:justify-center" : "lg:justify-start"}`}
-            >
-              <span className="flex-shrink-0">{nav.icon}</span>
-              {(isExpanded || isHovered || isMobileOpen) && (
-                <span className="text-sm font-medium flex-1 text-left">
-                  {nav.name}
-                </span>
-              )}
-              {(isExpanded || isHovered || isMobileOpen) && (
-                <ChevronDownIcon
-                  className={`ml-auto w-4 h-4 transition-transform duration-200 ${
-                    openSubmenu?.type === menuType &&
-                    openSubmenu?.index === index
-                      ? "rotate-180"
-                      : ""
-                  }`}
-                />
-              )}
-            </button>
-          ) : (
-            nav.path && (
-              <Link
-                to={nav.path}
-                className={`menu-item group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  isActive(nav.path)
+      {items.map((nav, index) => {
+        // Check if this menu or any submenu item is active
+        const isMenuActive = nav.path ? isActive(nav.path) : false;
+        const isSubMenuActive = nav.subItems
+          ? isSubmenuActive(nav.subItems)
+          : false;
+        const isOpen =
+          openSubmenu?.type === menuType && openSubmenu?.index === index;
+
+        return (
+          <li key={nav.name}>
+            {nav.subItems ? (
+              <button
+                onClick={() => handleSubmenuToggle(index, menuType)}
+                className={`menu-item group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  isOpen || isSubMenuActive
                     ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
                     : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
                 } ${!isExpanded && !isHovered ? "lg:justify-center" : "lg:justify-start"}`}
               >
                 <span className="flex-shrink-0">{nav.icon}</span>
                 {(isExpanded || isHovered || isMobileOpen) && (
-                  <span className="text-sm font-medium">{nav.name}</span>
+                  <span className="text-sm font-medium flex-1 text-left">
+                    {nav.name}
+                  </span>
                 )}
-              </Link>
-            )
-          )}
-          {nav.subItems && (isExpanded || isHovered || isMobileOpen) && (
-            <div
-              ref={(el) => {
-                subMenuRefs.current[`${menuType}-${index}`] = el;
-              }}
-              className="overflow-hidden transition-all duration-300"
-              style={{
-                height:
-                  openSubmenu?.type === menuType && openSubmenu?.index === index
+                {(isExpanded || isHovered || isMobileOpen) && (
+                  <ChevronDownIcon
+                    className={`ml-auto w-4 h-4 transition-transform duration-200 ${
+                      isOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                )}
+              </button>
+            ) : (
+              nav.path && (
+                <Link
+                  to={nav.path}
+                  className={`menu-item group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    isMenuActive
+                      ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
+                      : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                  } ${!isExpanded && !isHovered ? "lg:justify-center" : "lg:justify-start"}`}
+                >
+                  <span className="flex-shrink-0">{nav.icon}</span>
+                  {(isExpanded || isHovered || isMobileOpen) && (
+                    <span className="text-sm font-medium">{nav.name}</span>
+                  )}
+                </Link>
+              )
+            )}
+            {nav.subItems && (isExpanded || isHovered || isMobileOpen) && (
+              <div
+                ref={(el) => {
+                  subMenuRefs.current[`${menuType}-${index}`] = el;
+                }}
+                className="overflow-hidden transition-all duration-300"
+                style={{
+                  height: isOpen
                     ? `${subMenuHeight[`${menuType}-${index}`]}px`
                     : "0px",
-              }}
-            >
-              <ul className="mt-1 space-y-1 ml-4">
-                {nav.subItems.map((subItem) => (
-                  <li key={subItem.name}>
-                    <Link
-                      to={subItem.path}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        isActive(subItem.path)
-                          ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
-                          : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-                      }`}
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500"></span>
-                      {subItem.name}
-                      {subItem.new && (
-                        <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                          new
-                        </span>
-                      )}
-                      {subItem.pro && (
-                        <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-                          pro
-                        </span>
-                      )}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </li>
-      ))}
+                }}
+              >
+                <ul className="mt-1 space-y-1 ml-4">
+                  {nav.subItems.map((subItem) => (
+                    <li key={subItem.name}>
+                      <Link
+                        to={subItem.path}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          isActive(subItem.path)
+                            ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
+                            : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                        }`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500"></span>
+                        {subItem.name}
+                        {subItem.new && (
+                          <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                            new
+                          </span>
+                        )}
+                        {subItem.pro && (
+                          <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                            pro
+                          </span>
+                        )}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 

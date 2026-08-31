@@ -59,7 +59,7 @@ export default function ProductForm() {
     product_image: null,
     opening_balance: 0,
     supplier_id: [],
-    food_type: 0,
+    food_type_id: 0,
     outlet_id: 1,
   });
 
@@ -76,16 +76,12 @@ export default function ProductForm() {
     }
   }, [isAuthenticated]);
 
-  // src/pages/Products/ProductForm.tsx
-  // ... imports
-
   const fetchCreateData = useCallback(async () => {
     try {
       const response = await ProductService.getCreateData();
-      // ✅ Access data from response
       const data = response.data || response;
       setCreateData(data);
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         product_code: data.next_code || "",
       }));
@@ -128,8 +124,10 @@ export default function ProductForm() {
         product_type: data.product_type || 1,
         product_image: null,
         opening_balance: data.opening_balance || 0,
-        supplier_id: data.supplier_id ? data.supplier_id.split(',').map(Number) : [],
-        food_type: data.food_type || 0,
+        supplier_id: data.supplier_id
+          ? data.supplier_id.split(",").map(Number)
+          : [],
+        food_type_id: data.food_type_id || 0,
         outlet_id: 1,
       });
       if (data.product_image) {
@@ -154,26 +152,32 @@ export default function ProductForm() {
     }
   }, [isAuthenticated, isEdit, fetchProduct]);
 
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const { id, value, type } = e.target;
-    const val = type === "number" ? parseFloat(value) || 0 : value;
-    setFormData((prev) => ({ ...prev, [id]: val }));
-    if (errors[id]) {
-      setErrors((prev) => ({ ...prev, [id]: "" }));
-    }
-  }, [errors]);
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const { id, value, type } = e.target;
+      const val = type === "number" ? parseFloat(value) || 0 : value;
+      setFormData((prev) => ({ ...prev, [id]: val }));
+      if (errors[id]) {
+        setErrors((prev) => ({ ...prev, [id]: "" }));
+      }
+    },
+    [errors],
+  );
 
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setFormData((prev) => ({ ...prev, product_image: file }));
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  }, []);
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        setFormData((prev) => ({ ...prev, product_image: file }));
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
+    },
+    [],
+  );
 
   const handleSelectChange = useCallback(
     (field: keyof ProductFormData, value: OptionType | null) => {
@@ -184,7 +188,7 @@ export default function ProductForm() {
         }
       }
     },
-    [errors]
+    [errors],
   );
 
   const handleMultiSelectChange = useCallback(
@@ -197,7 +201,7 @@ export default function ProductForm() {
         setErrors((prev) => ({ ...prev, [field]: "" }));
       }
     },
-    [errors]
+    [errors],
   );
 
   const validate = useCallback(() => {
@@ -218,64 +222,80 @@ export default function ProductForm() {
     if (formData.pur_price <= 0) {
       newErrors.pur_price = "Purchase price must be greater than 0";
     }
+    // ✅ Validate supplier for raw materials
+    if (formData.product_type === 2) {
+      if (!formData.supplier_id || formData.supplier_id.length === 0) {
+        newErrors.supplier_id =
+          "Please select at least one supplier for raw materials";
+      }
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }, [formData]);
 
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!validate()) return;
 
-    setLoading(true);
-    try {
-      const formDataObj = new FormData();
+      setLoading(true);
+      try {
+        const formDataObj = new FormData();
 
-      // Append all fields
-      Object.entries(formData).forEach(([key, value]) => {
-        if (key === 'product_image' && value instanceof File) {
-          formDataObj.append(key, value);
-        } else if (key === 'supplier_id' && Array.isArray(value)) {
-          value.forEach((id) => {
-            formDataObj.append('supplier_id[]', id.toString());
-          });
-        } else if (value !== null && value !== undefined) {
-          formDataObj.append(key, value.toString());
+        Object.entries(formData).forEach(([key, value]) => {
+          if (key === "product_image" && value instanceof File) {
+            formDataObj.append(key, value);
+          } else if (key === "supplier_id" && Array.isArray(value)) {
+            value.forEach((id) => {
+              formDataObj.append("supplier_id[]", id.toString());
+            });
+          } else if (
+            key === "food_type_id" &&
+            value !== null &&
+            value !== undefined &&
+            value !== 0
+          ) {
+            formDataObj.append(key, value.toString());
+          } else if (value !== null && value !== undefined && value !== "") {
+            formDataObj.append(key, value.toString());
+          }
+        });
+
+        let response;
+        if (isEdit) {
+          response = await ProductService.update(parseInt(id!), formDataObj);
+        } else {
+          response = await ProductService.create(formDataObj);
         }
-      });
 
-      let response;
-      if (isEdit) {
-        response = await ProductService.update(parseInt(id!), formDataObj);
-      } else {
-        response = await ProductService.create(formDataObj);
+        Swal.fire({
+          icon: "success",
+          title: isEdit ? "Product Updated!" : "Product Created!",
+          timer: 2000,
+          showConfirmButton: false,
+          position: "top-end",
+          toast: true,
+        });
+        navigate("/products-list");
+      } catch (error: any) {
+        console.error("Error saving product:", error);
+        let errorMessage = error.message || "Failed to save product.";
+        if (error.errors) {
+          errorMessage = Object.values(error.errors).flat().join(", ");
+        }
+        Swal.fire({
+          icon: "error",
+          title: isEdit ? "Update Failed!" : "Create Failed!",
+          text: errorMessage,
+          confirmButtonColor: "#3b82f6",
+        });
+      } finally {
+        setLoading(false);
       }
-
-      Swal.fire({
-        icon: "success",
-        title: isEdit ? "Product Updated!" : "Product Created!",
-        timer: 2000,
-        showConfirmButton: false,
-        position: "top-end",
-        toast: true,
-      });
-      navigate("/products-list");
-    } catch (error: any) {
-      console.error("Error saving product:", error);
-      let errorMessage = error.message || "Failed to save product.";
-      if (error.errors) {
-        errorMessage = Object.values(error.errors).flat().join(", ");
-      }
-      Swal.fire({
-        icon: "error",
-        title: isEdit ? "Update Failed!" : "Create Failed!",
-        text: errorMessage,
-        confirmButtonColor: "#3b82f6",
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [formData, isEdit, id, validate, navigate]);
+    },
+    [formData, isEdit, id, validate, navigate],
+  );
 
   if (authLoading || fetching) {
     return (
@@ -359,14 +379,24 @@ export default function ProductForm() {
                     Category <span className="text-red-500">*</span>
                   </Label>
                   <Select
-                    options={createData?.categories?.map((c) => ({
-                      value: c.id.toString(),
-                      label: c.category_name,
-                    })) || []}
+                    options={
+                      createData?.categories?.map((c) => ({
+                        value: c.id.toString(),
+                        label: c.category_name,
+                      })) || []
+                    }
                     value={
                       createData?.categories?.find(
-                        (c) => c.id === formData.category_id
-                      ) || null
+                        (c) => c.id === formData.category_id,
+                      )
+                        ? {
+                            value: formData.category_id.toString(),
+                            label:
+                              createData.categories.find(
+                                (c) => c.id === formData.category_id,
+                              )?.category_name || "",
+                          }
+                        : null
                     }
                     onChange={(val) => handleSelectChange("category_id", val)}
                     className="w-full mt-1"
@@ -386,14 +416,22 @@ export default function ProductForm() {
                     Unit <span className="text-red-500">*</span>
                   </Label>
                   <Select
-                    options={createData?.units?.map((u) => ({
-                      value: u.id.toString(),
-                      label: u.unit_name,
-                    })) || []}
+                    options={
+                      createData?.units?.map((u) => ({
+                        value: u.id.toString(),
+                        label: u.unit_name,
+                      })) || []
+                    }
                     value={
-                      createData?.units?.find(
-                        (u) => u.id === formData.unit_id
-                      ) || null
+                      createData?.units?.find((u) => u.id === formData.unit_id)
+                        ? {
+                            value: formData.unit_id.toString(),
+                            label:
+                              createData.units.find(
+                                (u) => u.id === formData.unit_id,
+                              )?.unit_name || "",
+                          }
+                        : null
                     }
                     onChange={(val) => handleSelectChange("unit_id", val)}
                     className="w-full mt-1"
@@ -476,13 +514,20 @@ export default function ProductForm() {
                   </Label>
                   <Select
                     options={productTypeOptions}
-                    value={productTypeOptions.find(
-                      (opt) => parseInt(opt.value) === formData.product_type
-                    ) || productTypeOptions[0]}
+                    value={
+                      productTypeOptions.find(
+                        (opt) => parseInt(opt.value) === formData.product_type,
+                      ) || productTypeOptions[0]
+                    }
                     onChange={(val) => handleSelectChange("product_type", val)}
                     className="w-full mt-1"
                     isDisabled={loading}
                   />
+                  {formData.product_type === 2 && (
+                    <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
+                      ⚠️ Raw materials require at least one supplier
+                    </p>
+                  )}
                 </div>
 
                 {/* VAT Rate */}
@@ -546,9 +591,11 @@ export default function ProductForm() {
                   </Label>
                   <Select
                     options={disStatusOptions}
-                    value={disStatusOptions.find(
-                      (opt) => parseInt(opt.value) === formData.dis_status
-                    ) || disStatusOptions[0]}
+                    value={
+                      disStatusOptions.find(
+                        (opt) => parseInt(opt.value) === formData.dis_status,
+                      ) || disStatusOptions[0]
+                    }
                     onChange={(val) => handleSelectChange("dis_status", val)}
                     className="w-full mt-1"
                     isDisabled={loading}
@@ -576,16 +623,30 @@ export default function ProductForm() {
                     Food Type
                   </Label>
                   <Select
-                    options={createData?.food_types?.map((f) => ({
-                      value: f.id.toString(),
-                      label: f.name,
-                    })) || []}
+                    options={
+                      createData?.food_types?.map((f) => ({
+                        value: f.id.toString(),
+                        label: f.name || f.type_name || "Unknown",
+                      })) || []
+                    }
                     value={
                       createData?.food_types?.find(
-                        (f) => f.id === formData.food_type
-                      ) || null
+                        (f) => f.id === formData.food_type_id,
+                      )
+                        ? {
+                            value: formData.food_type_id.toString(),
+                            label:
+                              createData.food_types.find(
+                                (f) => f.id === formData.food_type_id,
+                              )?.name ||
+                              createData.food_types.find(
+                                (f) => f.id === formData.food_type_id,
+                              )?.type_name ||
+                              "",
+                          }
+                        : null
                     }
-                    onChange={(val) => handleSelectChange("food_type", val)}
+                    onChange={(val) => handleSelectChange("food_type_id", val)}
                     className="w-full mt-1"
                     isDisabled={loading}
                   />
@@ -613,25 +674,43 @@ export default function ProductForm() {
                 <div className="md:col-span-2">
                   <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Suppliers
+                    {formData.product_type === 2 && (
+                      <span className="text-red-500 ml-1">*</span>
+                    )}
                   </Label>
                   <Select
-                    options={createData?.suppliers?.map((s) => ({
-                      value: s.id.toString(),
-                      label: s.supplier_name,
-                    })) || []}
-                    value={
-                      createData?.suppliers?.filter((s) =>
-                        formData.supplier_id.includes(s.id)
-                      ).map((s) => ({
+                    options={
+                      createData?.suppliers?.map((s) => ({
                         value: s.id.toString(),
                         label: s.supplier_name,
                       })) || []
                     }
-                    onChange={(val) => handleMultiSelectChange("supplier_id", val)}
+                    value={
+                      createData?.suppliers
+                        ?.filter((s) => formData.supplier_id.includes(s.id))
+                        .map((s) => ({
+                          value: s.id.toString(),
+                          label: s.supplier_name,
+                        })) || []
+                    }
+                    onChange={(val) =>
+                      handleMultiSelectChange("supplier_id", val)
+                    }
                     className="w-full mt-1"
                     isDisabled={loading}
                     isMulti={true}
+                    placeholder={
+                      formData.product_type === 2
+                        ? "Select suppliers (required)"
+                        : "Select suppliers (optional)"
+                    }
                   />
+                  {errors.supplier_id && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                      <AlertCircle size={14} />
+                      {errors.supplier_id}
+                    </p>
+                  )}
                 </div>
 
                 {/* Product Image */}
@@ -664,7 +743,10 @@ export default function ProductForm() {
                           type="button"
                           onClick={() => {
                             setImagePreview(null);
-                            setFormData((prev) => ({ ...prev, product_image: null }));
+                            setFormData((prev) => ({
+                              ...prev,
+                              product_image: null,
+                            }));
                           }}
                           className="absolute -top-1 -right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
                         >
@@ -711,7 +793,10 @@ export default function ProductForm() {
           {/* Quick Tips */}
           <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
             <div className="flex items-start gap-3">
-              <CheckCircle size={20} className="text-blue-600 dark:text-blue-400" />
+              <CheckCircle
+                size={20}
+                className="text-blue-600 dark:text-blue-400"
+              />
               <div>
                 <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">
                   Product Creation Tips
@@ -720,7 +805,10 @@ export default function ProductForm() {
                   <li>• Product name should be unique and descriptive</li>
                   <li>• Product code must be unique</li>
                   <li>• Purchase price must be greater than 0</li>
-                  <li>• Upload a clear product image for better identification</li>
+                  <li>• Raw materials require at least one supplier</li>
+                  <li>
+                    • Upload a clear product image for better identification
+                  </li>
                 </ul>
               </div>
             </div>

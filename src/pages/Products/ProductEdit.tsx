@@ -77,7 +77,9 @@ export default function ProductEdit() {
 
   // Get auth token
   const getAuthToken = useCallback(() => {
-    return localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+    return (
+      localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
+    );
   }, []);
 
   // Fetch product on mount
@@ -92,14 +94,11 @@ export default function ProductEdit() {
       setLoading(true);
       const token = getAuthToken();
 
-      const res = await axios.get(
-        `${API_CONFIG.baseURL}/api/products/${id}`,
-        {
-          headers: {
-            Authorization: token ? `Bearer ${token}` : "",
-          },
-        }
-      );
+      const res = await axios.get(`${API_CONFIG.baseURL}/api/products/${id}`, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+      });
 
       const productData = res.data.products || res.data;
       setProduct(productData);
@@ -140,7 +139,10 @@ export default function ProductEdit() {
       let errorMessage = "Failed to load product data.";
       if (axios.isAxiosError(error)) {
         if (error.response) {
-          errorMessage = error.response.data?.message || error.response.statusText || `Server error: ${error.response.status}`;
+          errorMessage =
+            error.response.data?.message ||
+            error.response.statusText ||
+            `Server error: ${error.response.status}`;
         } else if (error.request) {
           errorMessage = "Network error - please check your connection";
         }
@@ -207,19 +209,31 @@ export default function ProductEdit() {
 
     if (!product?.price) {
       newErrors.price = "Price is required";
-    } else if (isNaN(parseFloat(product.price)) || parseFloat(product.price) <= 0) {
+    } else if (
+      isNaN(parseFloat(product.price)) ||
+      parseFloat(product.price) <= 0
+    ) {
       newErrors.price = "Please enter a valid price greater than 0";
     }
 
-    if (product?.stock && (isNaN(parseFloat(product.stock)) || parseFloat(product.stock) < 0)) {
+    if (
+      product?.stock &&
+      (isNaN(parseFloat(product.stock)) || parseFloat(product.stock) < 0)
+    ) {
       newErrors.stock = "Please enter a valid stock quantity (0 or more)";
     }
 
-    if (product?.vat && (isNaN(parseFloat(product.vat)) || parseFloat(product.vat) < 0)) {
+    if (
+      product?.vat &&
+      (isNaN(parseFloat(product.vat)) || parseFloat(product.vat) < 0)
+    ) {
       newErrors.vat = "Please enter a valid VAT percentage (0 or more)";
     }
 
-    if (product?.sd && (isNaN(parseFloat(product.sd)) || parseFloat(product.sd) < 0)) {
+    if (
+      product?.sd &&
+      (isNaN(parseFloat(product.sd)) || parseFloat(product.sd) < 0)
+    ) {
       newErrors.sd = "Please enter a valid SD percentage (0 or more)";
     }
 
@@ -250,23 +264,19 @@ export default function ProductEdit() {
         product_name: product.product_name.trim(),
         category_id: parseInt(product.category_id),
         product_type: product.product_type.trim(),
-        unit: parseInt(product.unit),
-        price: parseFloat(product.price) || 0,
-        stock: parseFloat(product.stock) || 0,
-        vat: parseFloat(product.vat) || 0,
-        sd: parseFloat(product.sd) || 0,
+        unit_id: parseInt(product.unit), // ✅
+        sale_price: parseFloat(product.price) || 0, // ✅ (or pur_price, decide which)
+        opening_balance: parseFloat(product.stock) || 0, // ✅ stock → opening_balance
+        vat_rate: parseFloat(product.vat) || 0, // ✅
+        sd_rate: parseFloat(product.sd) || 0, // ✅
       };
 
-      await axios.put(
-        `${API_CONFIG.baseURL}/api/products/${id}`,
-        payload,
-        {
-          headers: {
-            Authorization: token ? `Bearer ${token}` : "",
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      await axios.put(`${API_CONFIG.baseURL}/api/products/${id}`, payload, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+          "Content-Type": "application/json",
+        },
+      });
 
       Swal.fire({
         icon: "success",
@@ -299,7 +309,10 @@ export default function ProductEdit() {
       let errorMessage = "Failed to update product!";
       if (axios.isAxiosError(error)) {
         if (error.response) {
-          errorMessage = error.response.data?.message || error.response.statusText || `Server error: ${error.response.status}`;
+          errorMessage =
+            error.response.data?.message ||
+            error.response.statusText ||
+            `Server error: ${error.response.status}`;
         } else if (error.request) {
           errorMessage = "Network error - please check your connection";
         }
@@ -354,14 +367,11 @@ export default function ProductEdit() {
     try {
       const token = getAuthToken();
 
-      await axios.delete(
-        `${API_CONFIG.baseURL}/api/products/${id}`,
-        {
-          headers: {
-            Authorization: token ? `Bearer ${token}` : "",
-          },
-        }
-      );
+      await axios.delete(`${API_CONFIG.baseURL}/api/products/${id}`, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+      });
 
       Swal.fire({
         icon: "success",
@@ -393,7 +403,10 @@ export default function ProductEdit() {
       let errorMessage = "Failed to delete product.";
       if (axios.isAxiosError(error)) {
         if (error.response) {
-          errorMessage = error.response.data?.message || error.response.statusText || `Server error: ${error.response.status}`;
+          errorMessage =
+            error.response.data?.message ||
+            error.response.statusText ||
+            `Server error: ${error.response.status}`;
         } else if (error.request) {
           errorMessage = "Network error - please check your connection";
         }
@@ -410,7 +423,10 @@ export default function ProductEdit() {
 
   // Helper functions
   const getCurrentCategory = useCallback(() => {
-    return categories.find((c) => c.value === product?.category_id?.toString()) || null;
+    return (
+      categories.find((c) => c.value === product?.category_id?.toString()) ||
+      null
+    );
   }, [categories, product]);
 
   const getCurrentUnit = useCallback(() => {
@@ -418,7 +434,10 @@ export default function ProductEdit() {
   }, [units, product]);
 
   const getCurrentProductType = useCallback(() => {
-    return productTypes.find((t) => t.value === product?.product_type?.toString()) || null;
+    return (
+      productTypes.find((t) => t.value === product?.product_type?.toString()) ||
+      null
+    );
   }, [productTypes, product]);
 
   // Show loading while checking authentication
@@ -444,7 +463,9 @@ export default function ProductEdit() {
               className="w-10 h-10 animate-spin text-blue-500"
               aria-hidden="true"
             />
-            <p className="text-gray-500 dark:text-gray-400 text-sm">Loading product data...</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">
+              Loading product data...
+            </p>
           </div>
         </div>
       </div>
@@ -514,7 +535,9 @@ export default function ProductEdit() {
                     onChange={handleChange}
                     placeholder="Enter product name"
                     className={`mt-1 dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:placeholder-gray-400 ${
-                      errors.product_name ? "border-red-500 focus:ring-red-500" : "border-gray-300"
+                      errors.product_name
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-gray-300"
                     }`}
                     disabled={saving}
                     autoFocus
@@ -584,7 +607,9 @@ export default function ProductEdit() {
                     onChange={handleChange}
                     placeholder="Enter price"
                     className={`mt-1 dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:placeholder-gray-400 ${
-                      errors.price ? "border-red-500 focus:ring-red-500" : "border-gray-300"
+                      errors.price
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-gray-300"
                     }`}
                     disabled={saving}
                     step="0.01"
@@ -634,7 +659,9 @@ export default function ProductEdit() {
                     onChange={handleChange}
                     placeholder="Enter stock quantity"
                     className={`mt-1 dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:placeholder-gray-400 ${
-                      errors.stock ? "border-red-500 focus:ring-red-500" : "border-gray-300"
+                      errors.stock
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-gray-300"
                     }`}
                     disabled={saving}
                     min="0"
@@ -663,7 +690,9 @@ export default function ProductEdit() {
                     onChange={handleChange}
                     placeholder="Enter VAT percentage"
                     className={`mt-1 dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:placeholder-gray-400 ${
-                      errors.vat ? "border-red-500 focus:ring-red-500" : "border-gray-300"
+                      errors.vat
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-gray-300"
                     }`}
                     disabled={saving}
                     step="0.01"
@@ -693,7 +722,9 @@ export default function ProductEdit() {
                     onChange={handleChange}
                     placeholder="Enter SD percentage"
                     className={`mt-1 dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:placeholder-gray-400 ${
-                      errors.sd ? "border-red-500 focus:ring-red-500" : "border-gray-300"
+                      errors.sd
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-gray-300"
                     }`}
                     disabled={saving}
                     step="0.01"
@@ -779,7 +810,9 @@ export default function ProductEdit() {
                 />
               </div>
               <div>
-                <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">Edit Tips</h4>
+                <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                  Edit Tips
+                </h4>
                 <ul className="mt-1 text-sm text-blue-700 dark:text-blue-400 space-y-1">
                   <li>• Update product information as needed</li>
                   <li>• Price and stock changes affect inventory</li>

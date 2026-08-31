@@ -26,7 +26,7 @@ export interface Product {
   product_image: string;
   opening_balance: number;
   supplier_id: string | null;
-  food_type: number | null;
+  food_type_id: number | null;
   status: number;
   validity: number;
   created_at: string;
@@ -55,7 +55,7 @@ export interface ProductFormData {
   product_image: File | null;
   opening_balance: number;
   supplier_id: number[];
-  food_type: number;
+  food_type_id: number;
   outlet_id: number;
 }
 
@@ -67,7 +67,42 @@ export interface CreateProductData {
   food_types: FoodType[];
 }
 
+export interface Category {
+  id: number;
+  category_name: string;
+  status?: number;
+}
+
+export interface Unit {
+  id: number;
+  unit_name: string;
+  status?: number;
+}
+
+export interface Supplier {
+  id: number;
+  supplier_name: string;
+  username?: string;
+  phone?: string;
+  email?: string;
+}
+
 export interface FoodType {
   id: number;
   name: string;
+  type_name?: string;
+  onlinestatus?: number;
+}
+
+export interface BranchStore {
+  id: number;
+  branch_id: number;
+  product_id: number;
+  quantity: number;
+}
+
+export interface HeadOfficeStore {
+  id: number;
+  product_id: number;
+  quantity: number;
 }

@@ -19,7 +19,7 @@ export interface Product {
   product_image: string;
   opening_balance: number;
   supplier_id: string | null;
-  food_type: number | null;
+  food_type_id: number | null; // ✅ Fixed
   status: number;
   validity: number;
 }
@@ -51,6 +51,7 @@ interface Supplier {
 interface FoodType {
   id: number;
   name: string;
+  type_name?: string;
 }
 
 class ProductService {
@@ -60,9 +61,6 @@ class ProductService {
   async getCreateData(): Promise<CreateProductData> {
     try {
       const response = await this.api.get(`${this.endpoint}/create-data`);
-      console.log("📥 ProductService response:", response);
-
-      // ✅ Return the response directly
       return response;
     } catch (error) {
       console.error("❌ ProductService error:", error);
@@ -117,15 +115,19 @@ class ProductService {
     return response.data || response;
   }
 
-  // ✅ Add stock management methods
   async getWithStock(): Promise<any[]> {
     const response = await this.api.get(`${this.endpoint}/with-stock`);
     return response.data || response;
   }
 
-  async updateStock(id: number, stock: number): Promise<any> {
+  async updateStock(
+    id: number,
+    stock: number,
+    outletId: number = 1,
+  ): Promise<any> {
     const response = await this.api.put(`${this.endpoint}/${id}/stock`, {
       stock,
+      outlet_id: outletId,
     });
     return response.data || response;
   }

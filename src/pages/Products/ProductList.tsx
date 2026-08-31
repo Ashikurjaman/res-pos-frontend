@@ -414,13 +414,13 @@ export default function ProductList() {
   const getVat = useCallback((product: ProductType) => {
     const vat = product?.vat_rate || "0";
     const numVat = parseFloat(String(vat));
-    return isNaN(numVat) ? 0 : numVat;
+    return isNaN(numVat) ? 0 : numVat.toFixed(2);
   }, []);
 
   const getSd = useCallback((product: ProductType) => {
     const sd = product?.sd_rate || "0";
     const numSd = parseFloat(String(sd));
-    return isNaN(numSd) ? 0 : numSd;
+    return isNaN(numSd) ? 0 : numSd.toFixed(2);
   }, []);
 
   const handleRefresh = useCallback(() => {
