@@ -18,9 +18,10 @@ import {
 } from "lucide-react";
 import Swal from "sweetalert2";
 import AuthService, {
+  ROLES,
+  ROLE_LABELS,
   STATUS_LABELS,
   User,
-  formatRoleLabel, // ✅ Import the helper instead
 } from "../../services/authService";
 import { format } from "date-fns";
 
@@ -215,10 +216,8 @@ export default function UsersList() {
     return colors[status as keyof typeof colors] || colors.inactive;
   };
 
-  // ✅ Dynamic role badge colors - use a map or generate based on role name
   const getRoleBadge = (role: string) => {
-    // You can either use a dynamic color scheme or a predefined map
-    const colorMap: Record<string, string> = {
+    const colors = {
       superadmin:
         "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
       admin: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
@@ -227,31 +226,10 @@ export default function UsersList() {
       store: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400",
       kitchen:
         "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
-      cashier:
-        "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400",
-      manager:
-        "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-400",
+      user: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
     };
-
-    // If role is in the map, use that color, otherwise use a default
-    return (
-      colorMap[role] ||
-      "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
-    );
+    return colors[role as keyof typeof colors] || colors.user;
   };
-
-  // ✅ Collect unique roles from users for the filter dropdown
-  const availableRoles = React.useMemo(() => {
-    const roles = new Set<string>();
-    users.forEach((user) => {
-      if (user.role) {
-        roles.add(user.role);
-      }
-      // Also add all roles from the roles array
-      user.roles?.forEach((r) => roles.add(r));
-    });
-    return Array.from(roles).sort();
-  }, [users]);
 
   return (
     <div className="space-y-6">
@@ -296,10 +274,9 @@ export default function UsersList() {
             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           >
             <option value="">All Roles</option>
-            {/* ✅ Dynamically populate roles from users */}
-            {availableRoles.map((role) => (
-              <option key={role} value={role}>
-                {formatRoleLabel(role)}
+            {Object.entries(ROLE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
               </option>
             ))}
           </select>
@@ -442,7 +419,8 @@ export default function UsersList() {
                       <span
                         className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getRoleBadge(user.role)}`}
                       >
-                        {formatRoleLabel(user.role)}
+                        {ROLE_LABELS[user.role as keyof typeof ROLE_LABELS] ||
+                          user.role}
                       </span>
                     </td>
                     <td className="px-4 py-3">

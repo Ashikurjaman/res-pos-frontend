@@ -39,12 +39,12 @@ export default function AuthButton() {
         aria-haspopup="true"
       >
         <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
-          {user?.firstName?.charAt(0) || "U"}
-          {user?.lastName?.charAt(0)}
+          {user?.first_name?.charAt(0) || "U"}
+          {user?.last_name?.charAt(0)}
         </div>
         <div className="hidden sm:block text-left">
           <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {user?.firstName} {user?.lastName}
+            {user?.first_name} {user?.last_name}
           </div>
           <div className="text-xs text-gray-500 dark:text-gray-400 capitalize">
             {user?.role}
@@ -65,7 +65,7 @@ export default function AuthButton() {
           {/* User Info */}
           <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
             <div className="font-medium text-gray-900 dark:text-white">
-              {user?.firstName} {user?.lastName}
+              {user?.first_name} {user?.last_name}
             </div>
             <div className="text-sm text-gray-500 dark:text-gray-400">
               {user?.email || "No email"}

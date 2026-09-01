@@ -235,11 +235,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(updatedUser);
   }, []);
 
+  // only this part changes inside useAuth.tsx, rest stays same
   const hasRole = useCallback(
     (roles: string | string[]): boolean => {
       if (!user) return false;
       const roleList = Array.isArray(roles) ? roles : [roles];
-      return roleList.includes(user.role);
+      // user.roles is now an array from Spatie (backward compat: fall back to user.role)
+      const userRoles = (user as any).roles || [user.role];
+      return roleList.some((r) => userRoles.includes(r));
     },
     [user],
   );

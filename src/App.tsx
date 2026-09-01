@@ -57,10 +57,16 @@ import CompanyForm from "./pages/Company/CompanyForm";
 
 import StockRequestList from "./pages/StockTransfer/StockRequestList";
 import StockRequestForm from "./pages/StockTransfer/StockRequestForm";
-
 import StockRequestDetails from "./pages/StockTransfer/StockRequestDetails";
+
 // Table Pages
 import TableManagement from "./pages/Table/TableManagement";
+
+// User & Role Management Pages ✅ NEW
+import UsersList from "./pages/Users/UsersList";
+import UserFormPage from "./pages/Users/UserFormPage";
+import RolesList from "./pages/Roles/RolesList";
+import RoleFormPage from "./pages/Roles/RoleFormPage";
 
 // User Pages
 import UserProfiles from "./pages/UserProfiles";
@@ -105,9 +111,11 @@ export default function App() {
             <Route element={<AppLayout />}>
               {/* Dashboard */}
               <Route path="/dashboard" element={<Home />} />
+
               {/* Sale Routes */}
               <Route path="/create-sale" element={<CreateSale />} />
               <Route path="/sale-list" element={<SaleList />} />
+
               {/* Product Routes */}
               <Route path="/products" element={<Product />} />
               <Route path="/products-list" element={<ProductList />} />
@@ -115,31 +123,37 @@ export default function App() {
               <Route path="/products/create" element={<ProductForm />} />
               <Route path="/products/edit/:id" element={<ProductForm />} />
               <Route path="/stock-management" element={<StockManagement />} />
+
               {/* Supplier Routes */}
               <Route path="/suppliers" element={<SupplierList />} />
               <Route path="/suppliers/create" element={<SupplierForm />} />
               <Route path="/suppliers/edit/:id" element={<SupplierForm />} />
               <Route path="/suppliers/:id" element={<SupplierForm />} />
+
               {/* Category Routes */}
               <Route path="/category" element={<Category />} />
               <Route path="/category-list" element={<CategoryList />} />
               <Route path="/category-edit/:id" element={<CategoryEdit />} />
+
               {/* Unit Routes */}
               <Route path="/unit" element={<Unit />} />
               <Route path="/unit-list" element={<UnitList />} />
               <Route path="/unit-edit/:id" element={<UnitEdit />} />
               <Route path="/unit-view/:id" element={<UnitView />} />
+
               {/* Outlet Routes */}
               <Route path="/outlets" element={<OutletList />} />
               <Route path="/outlets/create" element={<OutletForm />} />
               <Route path="/outlets/edit/:id" element={<OutletForm />} />
               <Route path="/outlets/:id" element={<OutletForm />} />
+
+              {/* Food Type Routes */}
               <Route path="/food-types" element={<FoodTypeList />} />
               <Route path="/food-types/create" element={<FoodTypeForm />} />
               <Route path="/food-types/edit/:id" element={<FoodTypeForm />} />
               <Route path="/food-types/:id" element={<FoodTypeForm />} />
-              //Inventory
-              {/* Requests */}
+
+              {/* Inventory - Stock Requests */}
               <Route path="/stock-requests" element={<StockRequestList />} />
               <Route path="/stock-request/new" element={<StockRequestForm />} />
               <Route
@@ -150,7 +164,8 @@ export default function App() {
                 path="/stock-request/:id/approve"
                 element={<StockRequestApproval />}
               />
-              {/* Despatches */}
+
+              {/* Inventory - Despatches */}
               <Route path="/stock-despatches" element={<StockDespatchList />} />
               <Route
                 path="/stock-despatch/new"
@@ -160,22 +175,37 @@ export default function App() {
                 path="/stock-despatch/:id"
                 element={<StockDespatchDetails />}
               />
-              {/* Receives */}
+
+              {/* Inventory - Receives */}
               <Route path="/stock-receives" element={<StockReceiveList />} />
               <Route path="/stock-receive/new" element={<StockReceiveForm />} />
               <Route
                 path="/stock-receive/:id"
                 element={<StockReceiveDetails />}
               />
+
               {/* Company Routes */}
               <Route path="/companies" element={<CompanyList />} />
               <Route path="/companies/create" element={<CompanyForm />} />
               <Route path="/companies/edit/:id" element={<CompanyForm />} />
               <Route path="/companies/:id" element={<CompanyForm />} />
+
               {/* Table Routes */}
               <Route path="/tables" element={<TableManagement />} />
+
+              {/* ✅ NEW: User Management Routes */}
+              <Route path="/users" element={<UsersList />} />
+              <Route path="/users/create" element={<UserFormPage />} />
+              <Route path="/users/:id/edit" element={<UserFormPage />} />
+
+              {/* ✅ NEW: Role Management Routes */}
+              <Route path="/roles" element={<RolesList />} />
+              <Route path="/roles/create" element={<RoleFormPage />} />
+              <Route path="/roles/:id/edit" element={<RoleFormPage />} />
+
               {/* Profile */}
               <Route path="/profile" element={<UserProfiles />} />
+
               {/* UI Elements */}
               <Route path="/calendar" element={<Calendar />} />
               <Route path="/blank" element={<Blank />} />
@@ -187,6 +217,7 @@ export default function App() {
               <Route path="/buttons" element={<Buttons />} />
               <Route path="/images" element={<Images />} />
               <Route path="/videos" element={<Videos />} />
+
               {/* Charts */}
               <Route path="/line-chart" element={<LineChart />} />
               <Route path="/bar-chart" element={<BarChart />} />

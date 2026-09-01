@@ -1,6 +1,6 @@
 // src/services/OutletService.ts
 import { BaseService } from "./BaseService";
-import { Outlet, OutletFormData } from "../types/outlet";
+import { Outlet, OutletFormData } from "../type/outlet";
 
 class OutletService extends BaseService {
   constructor() {
