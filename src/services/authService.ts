@@ -165,19 +165,28 @@ class AuthService {
     }
   }
 
+  // src/services/authService.ts
+
   async createUser(data: {
     username: string;
-    email?: string;
+    email?: string | null; // ✅ Allow null
     password: string;
     first_name: string;
     last_name: string;
-    role: string; // dynamic role name
+    role: string;
     status?: Status;
     outlet_id?: number | null;
-    permissions?: string[]; // ⚠️ array of permission names now
+    permissions?: string[];
   }): Promise<AuthResponse> {
     try {
-      const response = await api.post("/users", data);
+      // ✅ Ensure email is always sent, even if null
+      const requestData = {
+        ...data,
+        email: data.email !== undefined ? data.email : null,
+        outlet_id: data.outlet_id !== undefined ? data.outlet_id : null,
+      };
+
+      const response = await api.post("/users", requestData);
       return response as AuthResponse;
     } catch (error: any) {
       if (error.response?.data) throw error.response.data;
@@ -189,7 +198,7 @@ class AuthService {
     id: number,
     data: {
       username?: string;
-      email?: string;
+      email?: string | null; // ✅ Allow null
       password?: string;
       first_name?: string;
       last_name?: string;
@@ -200,7 +209,14 @@ class AuthService {
     },
   ): Promise<AuthResponse> {
     try {
-      const response = await api.put(`/users/${id}`, data);
+      // ✅ Ensure email is always sent, even if null
+      const requestData = {
+        ...data,
+        email: data.email !== undefined ? data.email : null,
+        outlet_id: data.outlet_id !== undefined ? data.outlet_id : null,
+      };
+
+      const response = await api.put(`/users/${id}`, requestData);
       return response as AuthResponse;
     } catch (error: any) {
       if (error.response?.data) throw error.response.data;

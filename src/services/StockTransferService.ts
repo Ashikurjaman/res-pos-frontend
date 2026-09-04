@@ -59,67 +59,201 @@ class StockTransferService {
     outlet_id?: number;
     status?: number;
     type?: number;
+    search?: string;
+    page?: number;
+    per_page?: number;
   }): Promise<any> {
-    const response = await this.api.get("/stock-requests", { params });
-    return response.data || response;
+    try {
+      const response = await this.api.get("/stock-requests", { params });
+      console.log('📦 getRequests response:', response);
+      return response;
+    } catch (error) {
+      console.error("❌ Error fetching requests:", error);
+      throw error;
+    }
   }
 
   async getRequest(id: number): Promise<any> {
-    const response = await this.api.get(`/stock-requests/${id}`);
-    return response.data || response;
+    try {
+      const response = await this.api.get(`/stock-requests/${id}`);
+      console.log('📦 getRequest response:', response);
+      return response;
+    } catch (error) {
+      console.error(`❌ Error fetching request ${id}:`, error);
+      throw error;
+    }
   }
 
   async createRequest(data: CreateRequestData): Promise<any> {
-    const response = await this.api.post("/stock-requests", data);
-    return response.data || response;
+    try {
+      const response = await this.api.post("/stock-requests", data);
+      return response;
+    } catch (error) {
+      console.error("❌ Error creating request:", error);
+      throw error;
+    }
   }
 
   async approveRequest(id: number, data: ApproveRequestData): Promise<any> {
-    const response = await this.api.post(`/stock-requests/${id}/approve`, data);
-    return response.data || response;
+    try {
+      const response = await this.api.post(`/stock-requests/${id}/approve`, data);
+      return response;
+    } catch (error) {
+      console.error(`❌ Error approving request ${id}:`, error);
+      throw error;
+    }
   }
 
   async getPendingCount(): Promise<number> {
-    const response = await this.api.get("/stock-requests/pending-count");
-    return response.data?.data?.pending_count || 0;
+    try {
+      const response = await this.api.get("/stock-requests/pending-count");
+      return response?.data?.pending_count || 0;
+    } catch (error) {
+      console.error("❌ Error fetching pending count:", error);
+      return 0;
+    }
   }
 
   // ============ DESPATCH ============
   async getDespatches(params?: {
     outlet_id?: number;
     status?: number;
+    request_id?: number;
+    search?: string;
+    page?: number;
+    per_page?: number;
+    sort_by?: string;
+    sort_order?: string;
   }): Promise<any> {
-    const response = await this.api.get("/stock-despatches", { params });
-    return response.data || response;
+    try {
+      const response = await this.api.get("/stock-despatches", { params });
+      console.log('📦 getDespatches response:', response);
+      return response;
+    } catch (error) {
+      console.error("❌ Error fetching despatches:", error);
+      throw error;
+    }
   }
 
   async getDespatch(id: number): Promise<any> {
-    const response = await this.api.get(`/stock-despatches/${id}`);
-    return response.data || response;
+    try {
+      const response = await this.api.get(`/stock-despatches/${id}`);
+      console.log('📦 getDespatch response:', response);
+      return response;
+    } catch (error) {
+      console.error(`❌ Error fetching despatch ${id}:`, error);
+      throw error;
+    }
   }
 
   async createDespatch(data: CreateDespatchData): Promise<any> {
-    const response = await this.api.post("/stock-despatches", data);
-    return response.data || response;
+    try {
+      const response = await this.api.post("/stock-despatches", data);
+      console.log('📦 createDespatch response:', response);
+      return response;
+    } catch (error) {
+      console.error("❌ Error creating despatch:", error);
+      throw error;
+    }
+  }
+
+  // ✅ Update despatch status
+  async updateDespatchStatus(id: number, status: number): Promise<any> {
+    try {
+      const response = await this.api.put(`/stock-despatches/${id}/status`, { status });
+      return response;
+    } catch (error) {
+      console.error(`❌ Error updating despatch ${id} status:`, error);
+      throw error;
+    }
+  }
+
+  // ✅ Cancel despatch
+  async cancelDespatch(id: number): Promise<any> {
+    try {
+      const response = await this.api.post(`/stock-despatches/${id}/cancel`);
+      return response;
+    } catch (error) {
+      console.error(`❌ Error cancelling despatch ${id}:`, error);
+      throw error;
+    }
+  }
+
+  // ✅ Get despatch statistics
+  async getDespatchStatistics(outletId?: number): Promise<any> {
+    try {
+      const params = outletId ? { outlet_id: outletId } : {};
+      const response = await this.api.get("/stock-despatches/statistics", { params });
+      return response;
+    } catch (error) {
+      console.error("❌ Error fetching despatch statistics:", error);
+      throw error;
+    }
   }
 
   // ============ RECEIVE ============
   async getReceives(params?: {
     outlet_id?: number;
     status?: number;
+    page?: number;
+    per_page?: number;
+    search?: string;
   }): Promise<any> {
-    const response = await this.api.get("/stock-receives", { params });
-    return response.data || response;
+    try {
+      const response = await this.api.get("/stock-receives", { params });
+      return response;
+    } catch (error) {
+      console.error("❌ Error fetching receives:", error);
+      throw error;
+    }
   }
 
   async getReceive(id: number): Promise<any> {
-    const response = await this.api.get(`/stock-receives/${id}`);
-    return response.data || response;
+    try {
+      const response = await this.api.get(`/stock-receives/${id}`);
+      return response;
+    } catch (error) {
+      console.error(`❌ Error fetching receive ${id}:`, error);
+      throw error;
+    }
   }
 
   async receiveStock(data: ReceiveStockData): Promise<any> {
-    const response = await this.api.post("/stock-receives", data);
-    return response.data || response;
+    try {
+      const response = await this.api.post("/stock-receives", data);
+      return response;
+    } catch (error) {
+      console.error("❌ Error receiving stock:", error);
+      throw error;
+    }
+  }
+
+  // ✅ Update receive status
+  async updateReceiveStatus(id: number, status: number): Promise<any> {
+    try {
+      const response = await this.api.put(`/stock-receives/${id}/status`, { status });
+      return response;
+    } catch (error) {
+      console.error(`❌ Error updating receive ${id} status:`, error);
+      throw error;
+    }
+  }
+
+  // src/services/StockTransferService.ts
+
+  // ✅ Add this method
+  async getPendingRequests(params?: {
+      outlet_id?: number;
+      search?: string;
+  }): Promise<any> {
+      try {
+          const response = await this.api.get("/stock-requests/pending-for-despatch", { params });
+          console.log('📦 getPendingRequests response:', response);
+          return response;
+      } catch (error) {
+          console.error("❌ Error fetching pending requests:", error);
+          throw error;
+      }
   }
 }
 

@@ -17,7 +17,7 @@ import Select from "react-select";
 import Swal from "sweetalert2";
 import AuthService, { STATUS_LABELS, Status } from "../../services/authService";
 import RoleService, { RoleData } from "../../services/roleService";
-import OutletService from "../../services/OutletService"; // ✅ Note: Capital O
+import OutletService from "../../services/OutletService";
 
 // ==================== SCHEMA ====================
 
@@ -74,6 +74,7 @@ export default function UserForm({
     handleSubmit,
     control,
     watch,
+    setValue,
     formState: { errors },
     reset,
   } = useForm<UserFormData>({
@@ -99,53 +100,145 @@ export default function UserForm({
       try {
         setLoadingData(true);
 
-        // ✅ FIX: Use getAll() instead of getOutlets()
-        const outletData = await OutletService.getAll();
-        setOutlets(
-          outletData.map((outlet: any) => ({
-            value: outlet.id,
-            label: `${outlet.outlet_code} - ${outlet.outlet_name}`,
-          })),
-        );
+        // Load outlets with proper error handling
+        try {
+          const outletResponse = await OutletService.getAll();
+          console.log('Outlet response:', outletResponse);
 
-        // Roles (dynamic)
-        const roleResponse = await RoleService.getRoles({ per_page: 100 });
-        const roleList: RoleData[] = roleResponse.data?.data ?? [];
-        setRoles(roleList);
+          // Extract the array from the response
+          let outletArray = [];
+          if (outletResponse && typeof outletResponse === 'object') {
+            if (Array.isArray(outletResponse)) {
+              outletArray = outletResponse;
+            } else if (outletResponse.data && Array.isArray(outletResponse.data)) {
+              outletArray = outletResponse.data;
+            } else if (outletResponse.data?.data && Array.isArray(outletResponse.data.data)) {
+              outletArray = outletResponse.data.data;
+            } else if (outletResponse.items && Array.isArray(outletResponse.items)) {
+              outletArray = outletResponse.items;
+            } else if (outletResponse.results && Array.isArray(outletResponse.results)) {
+              outletArray = outletResponse.results;
+            }
+          }
 
-        // Grouped permissions (dashboard, users, orders, etc.)
-        const permResponse = await RoleService.getPermissionsList();
-        setPermissionGroups(permResponse.data ?? {});
+          console.log('Outlet array:', outletArray);
+
+          setOutlets(
+            outletArray.map((outlet: any) => ({
+              value: outlet.id,
+              label: `${outlet.outlet_code || ''} - ${outlet.outlet_name || 'Unnamed'}`,
+            }))
+          );
+        } catch (error) {
+          console.error('Failed to load outlets:', error);
+          setOutlets([]);
+        }
+
+        // Load roles
+        try {
+          const roleResponse = await RoleService.getRoles({ per_page: 100 });
+          console.log('Role response:', roleResponse);
+
+          let roleList: RoleData[] = [];
+
+          // Extract roles from response
+          if (roleResponse?.data?.data) {
+            roleList = roleResponse.data.data;
+          } else if (roleResponse?.data) {
+            roleList = Array.isArray(roleResponse.data) ? roleResponse.data : [];
+          } else if (Array.isArray(roleResponse)) {
+            roleList = roleResponse;
+          }
+
+          // ✅ Ensure each role has a permissions array
+          roleList = roleList.map(role => ({
+            ...role,
+            permissions: role.permissions || []
+          }));
+
+          console.log('Roles with permissions:', roleList);
+          setRoles(roleList);
+        } catch (error) {
+          console.error('Failed to load roles:', error);
+          setRoles([]);
+        }
+
+        // Load permissions
+        try {
+          const permResponse = await RoleService.getPermissionsList();
+          console.log('Permission response:', permResponse);
+
+          let permGroups = {};
+          if (permResponse?.data) {
+            permGroups = permResponse.data;
+          } else if (Array.isArray(permResponse)) {
+            // If permissions come as array, group them
+            permGroups = { all: permResponse };
+          }
+          setPermissionGroups(permGroups);
+        } catch (error) {
+          console.error('Failed to load permissions:', error);
+          setPermissionGroups({});
+        }
 
         // Editing existing user
         if (userId) {
-          const response = await AuthService.getUser(userId);
-          if (response.success && response.data) {
-            const u = response.data;
+          try {
+            const response = await AuthService.getUser(userId);
+            console.log('User API Response:', response);
 
-            // permissions from backend = array of names -> convert to checkbox map
-            const permMap: Record<string, boolean> = {};
-            (u.permissions || []).forEach((p: string) => (permMap[p] = true));
-            setCheckedPermissions(permMap);
+            if (response.success && response.data) {
+              const u = response.data;
+              console.log('User data extracted:', u);
 
-            reset({
-              username: u.username,
-              email: u.email || "",
-              first_name: u.first_name,
-              last_name: u.last_name,
-              role: u.role || "",
-              status: u.status as Status,
-              outlet_id: u.outlet_id || null,
-              password: "",
+              // ✅ permissions from backend = array of names -> convert to checkbox map
+              const permMap: Record<string, boolean> = {};
+              if (u.permissions && Array.isArray(u.permissions)) {
+                u.permissions.forEach((p: string) => (permMap[p] = true));
+              }
+              setCheckedPermissions(permMap);
+
+              // ✅ Set form values
+              reset({
+                username: u.username || '',
+                email: u.email || '',
+                first_name: u.first_name || '',
+                last_name: u.last_name || '',
+                role: u.role || '',
+                status: (u.status as Status) || 'active',
+                outlet_id: u.outlet_id || null,
+                password: '',
+              });
+
+              console.log('Form reset with data:', {
+                username: u.username,
+                email: u.email,
+                first_name: u.first_name,
+                last_name: u.last_name,
+                role: u.role,
+                status: u.status,
+                outlet_id: u.outlet_id
+              });
+            } else {
+              throw new Error('User data not found in response');
+            }
+          } catch (error) {
+            console.error('Failed to fetch user:', error);
+            Swal.fire({
+              icon: 'error',
+              title: 'Error!',
+              text: 'Failed to load user data. Please try again.',
             });
           }
-        } else if (roleList.length > 0) {
-          // default: preload first role's permissions for new user
-          const defaultRole =
-            roleList.find((r) => r.name === "user") || roleList[0];
-          reset((prev) => ({ ...prev, role: defaultRole.name }));
+        } else if (roles.length > 0) {
+          // ✅ default: preload first role's permissions for new user
+          const defaultRole = roles.find((r) => r.name === "user") || roles[0];
+          setValue('role', defaultRole.name);
+
           const map: Record<string, boolean> = {};
-          defaultRole.permissions.forEach((p) => (map[p] = true));
+          if (defaultRole.permissions && Array.isArray(defaultRole.permissions)) {
+            defaultRole.permissions.forEach((p) => (map[p] = true));
+          }
           setCheckedPermissions(map);
         }
       } catch (error) {
@@ -161,15 +254,21 @@ export default function UserForm({
     };
 
     loadData();
-  }, [userId, reset]);
+  }, [userId, reset, setValue]);
 
   // ==================== RESET TO ROLE DEFAULTS ====================
 
   const applyRoleDefaults = useCallback(() => {
     const role = roles.find((r) => r.name === selectedRole);
-    if (!role) return;
+    if (!role) {
+      console.warn('Role not found:', selectedRole);
+      return;
+    }
+
+    // ✅ Check if permissions exist and is an array
+    const permissions = role.permissions || [];
     const map: Record<string, boolean> = {};
-    role.permissions.forEach((p) => (map[p] = true));
+    permissions.forEach((p) => (map[p] = true));
     setCheckedPermissions(map);
   }, [roles, selectedRole]);
 
@@ -183,44 +282,123 @@ export default function UserForm({
     try {
       setLoading(true);
 
-      // Convert checkbox map -> array of permission names (only checked ones)
       const permissionNames = Object.entries(checkedPermissions)
         .filter(([, checked]) => checked)
         .map(([key]) => key);
 
+      // ✅ Separate role from other data
+      const { role, ...restData } = data;
+
+      // ✅ Always include email field, even if empty (send null)
       const submitData = {
-        ...data,
-        email: data.email || undefined,
-        password: data.password || undefined,
-        permissions: permissionNames,
+        username: restData.username,
+        email: restData.email || null, // ✅ Always send email (null if empty)
+        first_name: restData.first_name,
+        last_name: restData.last_name,
+        status: restData.status,
+        outlet_id: restData.outlet_id || null,
+        password: restData.password || undefined,
       };
 
-      const response = userId
-        ? await AuthService.updateUser(userId, submitData)
-        : await AuthService.createUser(submitData as any);
+      console.log('Submit data:', submitData);
 
-      if (response.success) {
+      if (userId) {
+        // ✅ Update basic info first
+        console.log('Updating user basic info:', submitData);
+        await AuthService.updateUser(userId, submitData);
+
+        // ✅ Update role separately using dedicated endpoint
+        if (role) {
+          console.log('Updating role to:', role);
+          try {
+            await AuthService.updateUserRole(userId, role);
+            console.log('Role updated successfully');
+          } catch (roleError: any) {
+            console.error('Role update error:', roleError);
+            if (roleError.message?.includes('Cannot change your own role')) {
+              Swal.fire({
+                icon: 'warning',
+                title: 'Cannot Change Own Role',
+                text: 'You cannot change your own role. Please use a different admin account.',
+              });
+              setLoading(false);
+              return;
+            }
+            throw roleError;
+          }
+        }
+
+        // ✅ Update permissions
+        if (permissionNames.length > 0) {
+          console.log('Updating permissions:', permissionNames);
+          await AuthService.updateUserPermissions(userId, permissionNames);
+        }
+
+        // ✅ Refresh user data to get updated role
+        const updatedUser = await AuthService.getUser(userId);
+        console.log('User after all updates:', updatedUser.data);
+        console.log('Updated role:', updatedUser.data?.role);
+
         await Swal.fire({
           icon: "success",
-          title: userId ? "User Updated!" : "User Created!",
-          text: userId
-            ? "User has been updated successfully."
-            : "User has been created successfully.",
+          title: "User Updated!",
+          text: "User has been updated successfully.",
           timer: 2000,
           showConfirmButton: false,
           position: "top-end",
           toast: true,
         });
         onSuccess?.();
+      } else {
+        // ✅ Create user with role
+        const createData = {
+          username: submitData.username,
+          email: submitData.email, // Always included (null if empty)
+          password: submitData.password,
+          first_name: submitData.first_name,
+          last_name: submitData.last_name,
+          role: role,
+          status: submitData.status,
+          outlet_id: submitData.outlet_id,
+          permissions: permissionNames,
+        };
+
+        console.log('Creating user with data:', createData);
+
+        const response = await AuthService.createUser(createData as any);
+
+        if (response.success) {
+          await Swal.fire({
+            icon: "success",
+            title: "User Created!",
+            text: "User has been created successfully.",
+            timer: 2000,
+            showConfirmButton: false,
+            position: "top-end",
+            toast: true,
+          });
+          onSuccess?.();
+        }
       }
     } catch (error: any) {
       console.error("Submit error:", error);
       let errorMessage = "Failed to save user. Please try again.";
+
       if (error.errors) {
         errorMessage = Object.values(error.errors).flat().join(", ");
       } else if (error.message) {
         errorMessage = error.message;
       }
+
+      // ✅ Check for specific errors
+      if (errorMessage.includes('Cannot change your own role')) {
+        errorMessage = 'You cannot change your own role. Please use a different admin account.';
+      } else if (errorMessage.includes('outlet_id')) {
+        errorMessage = 'Outlet selection is not available. Please try again without selecting an outlet.';
+      } else if (errorMessage.includes('email')) {
+        errorMessage = 'Please provide a valid email address or leave it empty.';
+      }
+
       await Swal.fire({
         icon: "error",
         title: "Error!",
@@ -478,7 +656,7 @@ export default function UserForm({
                   classNamePrefix="react-select"
                   value={outlets.find((o) => o.value === field.value) || null}
                   onChange={(option) => field.onChange(option?.value || null)}
-                  isDisabled={loading}
+                  isDisabled={loading || outlets.length === 0}
                   styles={{
                     control: (base) => ({
                       ...base,
@@ -512,34 +690,38 @@ export default function UserForm({
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Object.entries(permissionGroups).map(([groupName, perms]) => (
-            <div key={groupName} className="space-y-2">
-              <h4 className="font-medium text-gray-700 dark:text-gray-300 capitalize">
-                {groupName}
-              </h4>
-              <div className="space-y-2">
-                {perms.map((perm) => (
-                  <label
-                    key={perm.id}
-                    className="flex items-center space-x-2 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checkedPermissions[perm.name] || false}
-                      onChange={() => togglePermission(perm.name)}
-                      disabled={loading}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
-                    />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      {perm.name}
-                    </span>
-                  </label>
-                ))}
+        {Object.keys(permissionGroups).length === 0 ? (
+          <p className="text-gray-500 text-sm">No permissions available</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Object.entries(permissionGroups).map(([groupName, perms]) => (
+              <div key={groupName} className="space-y-2">
+                <h4 className="font-medium text-gray-700 dark:text-gray-300 capitalize">
+                  {groupName}
+                </h4>
+                <div className="space-y-2">
+                  {perms.map((perm) => (
+                    <label
+                      key={perm.id}
+                      className="flex items-center space-x-2 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checkedPermissions[perm.name] || false}
+                        onChange={() => togglePermission(perm.name)}
+                        disabled={loading}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+                      />
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        {perm.name}
+                      </span>
+                    </label>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ==================== ACTIONS ==================== */}

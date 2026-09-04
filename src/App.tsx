@@ -55,14 +55,22 @@ import OutletForm from "./pages/Outlet/OutletForm";
 import CompanyList from "./pages/Company/CompanyList";
 import CompanyForm from "./pages/Company/CompanyForm";
 
+// Stock Transfer Pages
 import StockRequestList from "./pages/StockTransfer/StockRequestList";
 import StockRequestForm from "./pages/StockTransfer/StockRequestForm";
 import StockRequestDetails from "./pages/StockTransfer/StockRequestDetails";
+import StockRequestApproval from "./pages/StockTransfer/StockRequestApproval";
+import StockDespatchList from "./pages/StockTransfer/StockDespatchList";
+import StockDespatchForm from "./pages/StockTransfer/StockDespatchForm";
+import StockDespatchDetails from "./pages/StockTransfer/StockDespatchDetails";
+import StockReceiveList from "./pages/StockTransfer/StockReceiveList";
+import StockReceiveForm from "./pages/StockTransfer/StockReceiveForm";
+import StockReceiveDetails from "./pages/StockTransfer/StockReceiveDetails";
 
 // Table Pages
 import TableManagement from "./pages/Table/TableManagement";
 
-// User & Role Management Pages ✅ NEW
+// User & Role Management Pages
 import UsersList from "./pages/Users/UsersList";
 import UserFormPage from "./pages/Users/UserFormPage";
 import RolesList from "./pages/Roles/RolesList";
@@ -86,13 +94,6 @@ import LineChart from "./pages/Charts/LineChart";
 import BarChart from "./pages/Charts/BarChart";
 import FoodTypeList from "./pages/FoodType/FoodTypeList";
 import FoodTypeForm from "./pages/FoodType/FoodTypeForm";
-import StockRequestApproval from "./pages/StockTransfer/StockRequestApproval";
-import StockDespatchList from "./pages/StockTransfer/StockDespatchList";
-import StockDespatchForm from "./pages/StockTransfer/StockDespatchForm";
-import StockReceiveList from "./pages/StockTransfer/StockReceiveList";
-import StockReceiveForm from "./pages/StockTransfer/StockReceiveForm";
-import StockDespatchDetails from "./pages/StockTransfer/StockDespatchDetails";
-import StockReceiveDetails from "./pages/StockTransfer/StockReceiveDetails";
 
 export default function App() {
   return (
@@ -153,36 +154,25 @@ export default function App() {
               <Route path="/food-types/edit/:id" element={<FoodTypeForm />} />
               <Route path="/food-types/:id" element={<FoodTypeForm />} />
 
-              {/* Inventory - Stock Requests */}
+              {/* ============================================================ */}
+              {/* ✅ STOCK TRANSFER ROUTES - Fixed */}
+              {/* ============================================================ */}
+
+              {/* Stock Requests */}
               <Route path="/stock-requests" element={<StockRequestList />} />
-              <Route path="/stock-request/new" element={<StockRequestForm />} />
-              <Route
-                path="/stock-request/:id"
-                element={<StockRequestDetails />}
-              />
-              <Route
-                path="/stock-request/:id/approve"
-                element={<StockRequestApproval />}
-              />
+              <Route path="/stock-requests/new" element={<StockRequestForm />} />
+              <Route path="/stock-requests/:id" element={<StockRequestDetails />} />
+              <Route path="/stock-requests/:id/approve" element={<StockRequestApproval />} />
 
-              {/* Inventory - Despatches */}
+              {/* Stock Despatches */}
               <Route path="/stock-despatches" element={<StockDespatchList />} />
-              <Route
-                path="/stock-despatch/new"
-                element={<StockDespatchForm />}
-              />
-              <Route
-                path="/stock-despatch/:id"
-                element={<StockDespatchDetails />}
-              />
+              <Route path="/stock-despatches/new" element={<StockDespatchForm />} />
+              <Route path="/stock-despatches/:id" element={<StockDespatchDetails />} />
 
-              {/* Inventory - Receives */}
+              {/* Stock Receives */}
               <Route path="/stock-receives" element={<StockReceiveList />} />
-              <Route path="/stock-receive/new" element={<StockReceiveForm />} />
-              <Route
-                path="/stock-receive/:id"
-                element={<StockReceiveDetails />}
-              />
+              <Route path="/stock-receives/new" element={<StockReceiveForm />} />
+              <Route path="/stock-receives/:id" element={<StockReceiveDetails />} />
 
               {/* Company Routes */}
               <Route path="/companies" element={<CompanyList />} />
@@ -193,12 +183,12 @@ export default function App() {
               {/* Table Routes */}
               <Route path="/tables" element={<TableManagement />} />
 
-              {/* ✅ NEW: User Management Routes */}
+              {/* User Management Routes */}
               <Route path="/users" element={<UsersList />} />
               <Route path="/users/create" element={<UserFormPage />} />
               <Route path="/users/:id/edit" element={<UserFormPage />} />
 
-              {/* ✅ NEW: Role Management Routes */}
+              {/* Role Management Routes */}
               <Route path="/roles" element={<RolesList />} />
               <Route path="/roles/create" element={<RoleFormPage />} />
               <Route path="/roles/:id/edit" element={<RoleFormPage />} />

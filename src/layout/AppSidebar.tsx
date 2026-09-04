@@ -99,11 +99,12 @@ const AppSidebar: React.FC = () => {
         { name: "Stock Management", path: "/stock-management" },
       ],
     },
+    // ✅ FIXED: Stock Transfer paths
     {
       icon: <ArrowLeftRight size={20} />,
       name: "Stock Transfer",
       subItems: [
-        { name: "New Request", path: "/stock-request/new" },
+        { name: "New Request", path: "/stock-requests/new" },
         { name: "Requests", path: "/stock-requests" },
         { name: "Despatches", path: "/stock-despatches" },
         { name: "Receives", path: "/stock-receives" },

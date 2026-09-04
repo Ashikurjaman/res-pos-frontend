@@ -12,6 +12,7 @@ export interface Product {
   sale_price: number;
   expire: string | null;
   unit_id: number;
+  unit_name?: string;
   vat_rate: number;
   sd_rate: number;
   scharge: number;
@@ -19,9 +20,12 @@ export interface Product {
   product_image: string;
   opening_balance: number;
   supplier_id: string | null;
-  food_type_id: number | null; // ✅ Fixed
+  food_type_id: number | null;
   status: number;
   validity: number;
+  branch_stock?: number;
+  head_office_stock?: number;
+  total_stock?: number;
 }
 
 export interface CreateProductData {
@@ -130,6 +134,82 @@ class ProductService {
       outlet_id: outletId,
     });
     return response.data || response;
+  }
+
+  // ✅ NEW: Search products with pagination
+  async search(query: string, outletId: number = 1): Promise<Product[]> {
+    try {
+      if (!query || query.length < 2) {
+        return [];
+      }
+
+      const response = await this.api.get(`${this.endpoint}/search`, {
+        params: {
+          q: query,
+          outlet_id: outletId,
+          per_page: 20
+        }
+      });
+
+      console.log('Search response:', response);
+
+      // Handle different response structures
+      let products: Product[] = [];
+      if (response && typeof response === 'object') {
+        if (response.data && Array.isArray(response.data)) {
+          products = response.data;
+        } else if (response.data?.data && Array.isArray(response.data.data)) {
+          products = response.data.data;
+        } else if (Array.isArray(response)) {
+          products = response;
+        }
+      }
+
+      return products;
+    } catch (error) {
+      console.error("❌ Error searching products:", error);
+      throw error;
+    }
+  }
+
+  // ✅ NEW: Search products with more options
+  async searchAdvanced(params: {
+    q?: string;
+    category_id?: number;
+    outlet_id?: number;
+    page?: number;
+    per_page?: number;
+  }): Promise<{ data: Product[]; total: number; current_page: number }> {
+    try {
+      const response = await this.api.get(`${this.endpoint}/search`, {
+        params: {
+          ...params,
+          per_page: params.per_page || 20
+        }
+      });
+
+      // Handle different response structures
+      let result = {
+        data: [] as Product[],
+        total: 0,
+        current_page: 1
+      };
+
+      if (response && typeof response === 'object') {
+        if (response.data && Array.isArray(response.data)) {
+          result.data = response.data;
+        } else if (response.data?.data && Array.isArray(response.data.data)) {
+          result.data = response.data.data;
+          result.total = response.data.total || 0;
+          result.current_page = response.data.current_page || 1;
+        }
+      }
+
+      return result;
+    } catch (error) {
+      console.error("❌ Error searching products:", error);
+      throw error;
+    }
   }
 }
 

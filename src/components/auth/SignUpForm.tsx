@@ -2,6 +2,7 @@
 import { useState, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
+import { useRateLimit } from "../../hooks/useRateLimit";
 import {
   Eye,
   EyeOff,
@@ -41,6 +42,9 @@ export default function SignUpForm() {
 
   const { signUp } = useAuth();
   const navigate = useNavigate();
+
+  // ✅ Rate limit: 3 attempts per hour for signup
+  const { isRateLimited, remainingAttempts, handleAttempt } = useRateLimit(3, 3600);
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -116,8 +120,10 @@ export default function SignUpForm() {
       setLoading(true);
 
       try {
-        // ✅ Call signUp from useAuth
-        await signUp(formData);
+        // ✅ Wrap signUp with rate limit handler
+        await handleAttempt(async () => {
+          return await signUp(formData);
+        });
 
         // ✅ Set success state
         setSignupSuccess(true);
@@ -128,13 +134,22 @@ export default function SignUpForm() {
         }, 2000);
       } catch (err: any) {
         console.error("Signup error:", err);
-        setError(err.message || "Failed to create account. Please try again.");
+
+        // Check if it's a rate limit error
+        const isRateError = err?.status === 429 ||
+                           err?.response?.status === 429 ||
+                           err?.message?.includes('rate') ||
+                           err?.message?.includes('429');
+
+        if (!isRateError) {
+          setError(err.message || "Failed to create account. Please try again.");
+        }
         setSignupSuccess(false);
       } finally {
         setLoading(false);
       }
     },
-    [formData, validate, signUp, navigate],
+    [formData, validate, signUp, navigate, handleAttempt],
   );
 
   // ✅ Show success screen
@@ -186,10 +201,26 @@ export default function SignUpForm() {
         </p>
       </div>
 
-      {/* Error Message */}
-      {error && (
+      {/* Rate Limit Warning */}
+      {isRateLimited && (
         <div
-          className="p-3 mb-4 text-sm text-red-600 bg-red-100 rounded-lg dark:bg-red-900/20 dark:text-red-400 flex items-start gap-2"
+          className="p-3 mb-4 text-sm text-yellow-800 bg-yellow-100 rounded-lg dark:bg-yellow-900/30 dark:text-yellow-200 flex items-start gap-2 border border-yellow-300 dark:border-yellow-700"
+          role="alert"
+          aria-live="polite"
+          id="rate-limit-warning"
+        >
+          <AlertCircle size={18} className="flex-shrink-0 mt-0.5" aria-hidden="true" />
+          <div>
+            <p className="font-medium">Too many registration attempts</p>
+            <p>Please wait <strong>{remainingAttempts}</strong> seconds before trying again.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Error Message - Only show non-rate-limit errors */}
+      {error && !isRateLimited && (
+        <div
+          className="p-3 mb-4 text-sm text-red-600 bg-red-100 rounded-lg dark:bg-red-900/20 dark:text-red-400 flex items-start gap-2 border border-red-300 dark:border-red-800"
           role="alert"
           aria-live="polite"
         >
@@ -230,13 +261,16 @@ export default function SignUpForm() {
                 className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-400 disabled:opacity-50 disabled:cursor-not-allowed ${
                   touched.firstName && !formData.firstName
                     ? "border-red-500"
+                    : isRateLimited
+                    ? "border-yellow-400 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/10"
                     : "border-gray-300"
                 }`}
                 placeholder="First name"
                 required
-                disabled={loading}
+                disabled={loading || isRateLimited}
                 autoComplete="given-name"
                 aria-label="First Name"
+                aria-describedby={isRateLimited ? "rate-limit-warning" : undefined}
               />
             </div>
           </div>
@@ -265,11 +299,13 @@ export default function SignUpForm() {
                 className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-400 disabled:opacity-50 disabled:cursor-not-allowed ${
                   touched.lastName && !formData.lastName
                     ? "border-red-500"
+                    : isRateLimited
+                    ? "border-yellow-400 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/10"
                     : "border-gray-300"
                 }`}
                 placeholder="Last name"
                 required
-                disabled={loading}
+                disabled={loading || isRateLimited}
                 autoComplete="family-name"
                 aria-label="Last Name"
               />
@@ -298,11 +334,13 @@ export default function SignUpForm() {
               className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-400 disabled:opacity-50 disabled:cursor-not-allowed ${
                 touched.username && !formData.username
                   ? "border-red-500"
+                  : isRateLimited
+                  ? "border-yellow-400 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/10"
                   : "border-gray-300"
               }`}
               placeholder="Choose a username"
               required
-              disabled={loading}
+              disabled={loading || isRateLimited}
               autoComplete="username"
               aria-label="Username"
             />
@@ -333,10 +371,12 @@ export default function SignUpForm() {
                 formData.email &&
                 !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)
                   ? "border-red-500"
+                  : isRateLimited
+                  ? "border-yellow-400 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/10"
                   : "border-gray-300"
               }`}
               placeholder="you@example.com (optional)"
-              disabled={loading}
+              disabled={loading || isRateLimited}
               autoComplete="email"
               aria-label="Email Address"
             />
@@ -372,11 +412,13 @@ export default function SignUpForm() {
               className={`w-full pl-10 pr-12 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-400 disabled:opacity-50 disabled:cursor-not-allowed ${
                 touched.password && !formData.password
                   ? "border-red-500"
+                  : isRateLimited
+                  ? "border-yellow-400 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/10"
                   : "border-gray-300"
               }`}
               placeholder="Enter your password"
               required
-              disabled={loading}
+              disabled={loading || isRateLimited}
               autoComplete="new-password"
               aria-label="Password"
             />
@@ -385,6 +427,7 @@ export default function SignUpForm() {
               onClick={toggleShowPassword}
               className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg p-1"
               aria-label={showPassword ? "Hide password" : "Show password"}
+              disabled={loading || isRateLimited}
             >
               {showPassword ? (
                 <EyeOff size={20} aria-hidden="true" />
@@ -422,11 +465,13 @@ export default function SignUpForm() {
               className={`w-full pl-10 pr-12 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-400 disabled:opacity-50 disabled:cursor-not-allowed ${
                 touched.confirmPassword && formData.password !== confirmPassword
                   ? "border-red-500"
+                  : isRateLimited
+                  ? "border-yellow-400 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/10"
                   : "border-gray-300"
               }`}
               placeholder="Confirm your password"
               required
-              disabled={loading}
+              disabled={loading || isRateLimited}
               autoComplete="new-password"
               aria-label="Confirm Password"
             />
@@ -437,6 +482,7 @@ export default function SignUpForm() {
               aria-label={
                 showConfirmPassword ? "Hide password" : "Show password"
               }
+              disabled={loading || isRateLimited}
             >
               {showConfirmPassword ? (
                 <EyeOff size={20} aria-hidden="true" />
@@ -455,8 +501,12 @@ export default function SignUpForm() {
 
         <button
           type="submit"
-          disabled={loading}
-          className="w-full px-4 py-2.5 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-blue-500 dark:hover:bg-blue-600 dark:focus:ring-blue-800 transition duration-200 font-medium"
+          disabled={loading || isRateLimited}
+          className={`w-full px-4 py-2.5 text-white rounded-lg focus:ring-4 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed dark:focus:ring-blue-800 transition duration-200 font-medium ${
+            isRateLimited
+              ? 'bg-yellow-500 hover:bg-yellow-600 dark:bg-yellow-600 dark:hover:bg-yellow-700'
+              : 'bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600'
+          }`}
         >
           {loading ? (
             <span className="flex items-center justify-center">
@@ -466,6 +516,11 @@ export default function SignUpForm() {
                 aria-hidden="true"
               />
               Creating account...
+            </span>
+          ) : isRateLimited ? (
+            <span className="flex items-center justify-center">
+              <AlertCircle size={18} className="mr-2" aria-hidden="true" />
+              Wait {remainingAttempts}s
             </span>
           ) : (
             "Create Account"
@@ -489,7 +544,10 @@ export default function SignUpForm() {
       <div className="grid grid-cols-2 gap-3">
         <button
           type="button"
-          className="flex items-center justify-center px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className={`flex items-center justify-center px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+            isRateLimited ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
+          disabled={isRateLimited}
           aria-label="Sign up with Google"
         >
           <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" aria-hidden="true">
@@ -514,7 +572,10 @@ export default function SignUpForm() {
         </button>
         <button
           type="button"
-          className="flex items-center justify-center px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className={`flex items-center justify-center px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+            isRateLimited ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
+          disabled={isRateLimited}
           aria-label="Sign up with X"
         >
           <svg
@@ -534,7 +595,10 @@ export default function SignUpForm() {
         Already have an account?{" "}
         <Link
           to="/signin"
-          className="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg px-2 py-1"
+          className={`font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg px-2 py-1 ${
+            isRateLimited ? 'pointer-events-none opacity-50' : ''
+          }`}
+          tabIndex={isRateLimited ? -1 : 0}
         >
           Sign In
         </Link>
