@@ -53,8 +53,9 @@ export default function StockReceiveList() {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (r) =>
-          r.receive_no.toLowerCase().includes(term) ||
-          r.receiving_outlet?.outlet_name?.toLowerCase().includes(term),
+          (r.receive_no?.toLowerCase().includes(term) || false) ||
+          (r.receiving_outlet?.outlet_name?.toLowerCase().includes(term) || false) ||
+          (r.despatch?.despatch_no?.toLowerCase().includes(term) || false),
       );
     }
 
@@ -68,17 +69,63 @@ export default function StockReceiveList() {
   const fetchReceives = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await StockTransferService.getReceives();
-      setReceives(data.data || []);
-      setFilteredReceives(data.data || []);
+      const response = await StockTransferService.getReceives();
+      console.log("📦 API Response:", response);
+
+      // Extract data safely - handle different response formats
+      let receivesData: OutletReceive[] = [];
+
+      if (response) {
+        // Case 1: response.data.data (Laravel pagination)
+        if (response.data && Array.isArray(response.data.data)) {
+          receivesData = response.data.data;
+        }
+        // Case 2: response.data is an array
+        else if (response.data && Array.isArray(response.data)) {
+          receivesData = response.data;
+        }
+        // Case 3: response itself is an array
+        else if (Array.isArray(response)) {
+          receivesData = response;
+        }
+        // Case 4: response has data property that's an object with data array
+        else if (response.data && typeof response.data === 'object') {
+          // Try to find any array property in the data object
+          for (const key in response.data) {
+            if (Array.isArray(response.data[key])) {
+              receivesData = response.data[key];
+              break;
+            }
+          }
+        }
+        // Case 5: response is an object with receives property
+        else if (response.receives && Array.isArray(response.receives)) {
+          receivesData = response.receives;
+        }
+      }
+
+      console.log("📋 Processed receives data:", receivesData);
+      setReceives(receivesData);
+      setFilteredReceives(receivesData);
     } catch (error: any) {
-      console.error("Error fetching receives:", error);
+      console.error("❌ Error fetching receives:", error);
+
+      let errorMessage = "Failed to load receives";
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
       Swal.fire({
         icon: "error",
         title: "Error!",
-        text: error.message || "Failed to load receives",
+        text: errorMessage,
         confirmButtonColor: "#3b82f6",
       });
+
+      setReceives([]);
+      setFilteredReceives([]);
     } finally {
       setLoading(false);
     }
@@ -288,8 +335,16 @@ export default function StockReceiveList() {
                       <div className="flex flex-col items-center gap-2">
                         <Package className="w-12 h-12 text-gray-300 dark:text-gray-600" />
                         <p className="text-gray-500 dark:text-gray-400">
-                          No receives found
+                          {receives.length === 0 ? 'No receives found' : 'No matching receives found'}
                         </p>
+                        {receives.length === 0 && (
+                          <button
+                            onClick={() => navigate("/stock-despatches")}
+                            className="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors"
+                          >
+                            View Despatches
+                          </button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -301,19 +356,25 @@ export default function StockReceiveList() {
                     >
                       <TableCell className="px-4 py-3">
                         <span className="font-medium text-green-600 dark:text-green-400">
-                          {receive.receive_no}
+                          {receive.receive_no || `RCV-${String(receive.id).padStart(4, '0')}`}
                         </span>
                       </TableCell>
                       <TableCell className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                        {new Date(receive.receive_date).toLocaleDateString()}
+                        {receive.receive_date
+                          ? new Date(receive.receive_date).toLocaleDateString()
+                          : 'N/A'}
                       </TableCell>
                       <TableCell className="px-4 py-3">
                         <span className="text-blue-600 dark:text-blue-400">
-                          {receive.despatch?.despatch_no || "N/A"}
+                          {receive.despatch?.despatch_no ||
+                           receive.despatch_no ||
+                           `DESP-${String(receive.despatch_id).padStart(4, '0')}`}
                         </span>
                       </TableCell>
                       <TableCell className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                        {receive.receiving_outlet?.outlet_name || "Unknown"}
+                        {receive.receiving_outlet?.outlet_name ||
+                         receive.receiving_outlet_name ||
+                         "Unknown"}
                       </TableCell>
                       <TableCell className="px-4 py-3 text-center">
                         {getStatusBadge(receive.status)}
