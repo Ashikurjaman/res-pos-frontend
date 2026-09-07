@@ -108,6 +108,7 @@ const AppSidebar: React.FC = () => {
         { name: "Requests", path: "/stock-requests" },
         { name: "Despatches", path: "/stock-despatches" },
         { name: "Receives", path: "/stock-receives" },
+        { name: "Pending Receives", path: "/stock-receives/pending" },
       ],
     },
     {

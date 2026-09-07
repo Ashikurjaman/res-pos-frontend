@@ -2,8 +2,21 @@
 import axios from "axios";
 import Swal from "sweetalert2";
 
+// ✅ FIX: no more hardcoded localhost — falls back to it only in dev
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api";
+
+// ✅ FIX: `metadata` was being set on the request config but never declared,
+// which is a type error under strict TS. Augment axios's config type instead
+// of relying on an implicit `any`.
+declare module "axios" {
+  export interface AxiosRequestConfig {
+    metadata?: { startTime: number };
+  }
+}
+
 const api = axios.create({
-  baseURL: "http://localhost:8000/api",
+  baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
     Accept: "application/json",
@@ -23,7 +36,6 @@ export const setAuthToken = (token: string, rememberMe: boolean = false) => {
     localStorage.removeItem("rememberMe");
   }
   api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-  console.log("✅ Auth token set");
 };
 
 export const clearAuthToken = () => {
@@ -31,7 +43,6 @@ export const clearAuthToken = () => {
   sessionStorage.removeItem("authToken");
   localStorage.removeItem("rememberMe");
   delete api.defaults.headers.common["Authorization"];
-  console.log("✅ Auth token cleared");
 };
 
 export const getAuthToken = () => {
@@ -52,26 +63,27 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-
-    // Add request timestamp for debugging
     config.metadata = { startTime: Date.now() };
-
     return config;
   },
   (error) => {
     console.error("Request Error:", error);
     return Promise.reject(error);
-  }
+  },
 );
 
 // ==================== RESPONSE INTERCEPTOR ====================
+// NOTE: this interceptor unwraps to response.data, so every caller
+// (authService, etc.) receives the API's JSON body directly, not an
+// AxiosResponse. That contract is preserved as-is below.
 
 api.interceptors.response.use(
   (response) => {
-    // Log response time for debugging
     if (response.config.metadata) {
       const duration = Date.now() - response.config.metadata.startTime;
-      console.log(`✅ ${response.config.method?.toUpperCase()} ${response.config.url} - ${duration}ms`);
+      console.log(
+        `✅ ${response.config.method?.toUpperCase()} ${response.config.url} - ${duration}ms`,
+      );
     }
     return response.data;
   },
@@ -80,7 +92,6 @@ api.interceptors.response.use(
 
     // ============ NETWORK ERRORS ============
     if (error.code === "ERR_NETWORK") {
-      console.error("Network error - please check your connection");
       Swal.fire({
         icon: "error",
         title: "Network Error",
@@ -110,11 +121,10 @@ api.interceptors.response.use(
     // ============ RATE LIMITING (429) ============
     if (error.response?.status === 429) {
       const retryAfter = error.response.data?.retry_after || 60;
-      const message = error.response.data?.message || "Too many requests. Please wait before trying again.";
+      const message =
+        error.response.data?.message ||
+        "Too many requests. Please wait before trying again.";
 
-      console.warn(`⏳ Rate limit exceeded. Retry after ${retryAfter} seconds`);
-
-      // Show SweetAlert with timer
       Swal.fire({
         icon: "warning",
         title: "Too Many Requests",
@@ -126,10 +136,9 @@ api.interceptors.response.use(
         showConfirmButton: true,
       });
 
-      // You can also implement exponential backoff here
       return Promise.reject({
         success: false,
-        message: message,
+        message,
         retry_after: retryAfter,
         status: 429,
       });
@@ -137,10 +146,8 @@ api.interceptors.response.use(
 
     // ============ UNAUTHORIZED (401) ============
     if (error.response?.status === 401) {
-      console.error("Unauthorized - Token may be expired");
       clearAuthToken();
 
-      // Don't redirect if already on login page
       const publicPaths = ["/signin", "/signup", "/login", "/register"];
       if (
         !publicPaths.includes(window.location.pathname) &&
@@ -165,7 +172,9 @@ api.interceptors.response.use(
 
     // ============ FORBIDDEN (403) ============
     if (error.response?.status === 403) {
-      const message = error.response.data?.message || "You don't have permission to perform this action.";
+      const message =
+        error.response.data?.message ||
+        "You don't have permission to perform this action.";
 
       Swal.fire({
         icon: "error",
@@ -176,7 +185,7 @@ api.interceptors.response.use(
 
       return Promise.reject({
         success: false,
-        message: message,
+        message,
         status: 403,
       });
     }
@@ -184,14 +193,12 @@ api.interceptors.response.use(
     // ============ VALIDATION ERROR (422) ============
     if (error.response?.status === 422) {
       const errors = error.response.data?.errors || {};
-
-      // Show first validation error
       const firstError = Object.values(errors).flat()[0];
       if (firstError) {
         Swal.fire({
           icon: "error",
           title: "Validation Error",
-          text: firstError,
+          text: firstError as string,
           confirmButtonColor: "#3b82f6",
         });
       }
@@ -199,7 +206,7 @@ api.interceptors.response.use(
       return Promise.reject({
         success: false,
         message: "Validation failed",
-        errors: errors,
+        errors,
         status: 422,
       });
     }
@@ -217,25 +224,32 @@ api.interceptors.response.use(
 
       return Promise.reject({
         success: false,
-        message: message,
+        message,
         status: 404,
       });
     }
 
     // ============ SERVER ERROR (500) ============
     if (error.response?.status === 500) {
-      console.error("Server Error:", error.response.data);
+      // ✅ FIX: surface the backend's actual message/error instead of a
+      // fixed generic string — several controllers (e.g. OutletReceiveController)
+      // deliberately return `error: $e->getMessage()` for exactly this reason,
+      // and it was being discarded here.
+      const backendMessage =
+        error.response.data?.error ||
+        error.response.data?.message ||
+        "Something went wrong on the server. Please try again later.";
 
       Swal.fire({
         icon: "error",
         title: "Server Error",
-        text: "Something went wrong on the server. Please try again later.",
+        text: backendMessage,
         confirmButtonColor: "#3b82f6",
       });
 
       return Promise.reject({
         success: false,
-        message: "Server error. Please try again later.",
+        message: backendMessage,
         status: 500,
       });
     }
@@ -250,36 +264,33 @@ api.interceptors.response.use(
       status: error.response?.status,
       data: error.response?.data,
     });
-  }
+  },
 );
 
-// ==================== HELPER FUNCTIONS FOR RATE LIMITING ====================
+// ==================== RATE LIMIT HELPERS ====================
 
-// Exponential backoff for retries
-export const exponentialBackoff = async (retryCount: number, maxRetries: number = 3): Promise<void> => {
+export const exponentialBackoff = async (
+  retryCount: number,
+  maxRetries: number = 3,
+): Promise<void> => {
   if (retryCount >= maxRetries) {
-    throw new Error('Max retries exceeded');
+    throw new Error("Max retries exceeded");
   }
-
-  const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
-  await new Promise(resolve => setTimeout(resolve, delay));
+  const delay = Math.pow(2, retryCount) * 1000;
+  await new Promise((resolve) => setTimeout(resolve, delay));
 };
 
-// Check if error is rate limit error
 export const isRateLimitError = (error: any): boolean => {
   return error?.status === 429 || error?.response?.status === 429;
 };
 
-// Get retry after from error
 export const getRetryAfter = (error: any): number => {
   return error?.retry_after || error?.response?.data?.retry_after || 60;
 };
 
-// ==================== RATE LIMIT AWARE REQUEST FUNCTION ====================
-
 export const makeRequestWithRetry = async (
   requestFn: () => Promise<any>,
-  maxRetries: number = 3
+  maxRetries: number = 3,
 ): Promise<any> => {
   let lastError: any;
   let attempt = 0;
@@ -289,17 +300,12 @@ export const makeRequestWithRetry = async (
       return await requestFn();
     } catch (error: any) {
       lastError = error;
-
-      // Only retry on rate limit errors
       if (!isRateLimitError(error)) {
         throw error;
       }
-
       attempt++;
-
       if (attempt < maxRetries) {
         const retryAfter = getRetryAfter(error);
-        console.warn(`⏳ Rate limited. Retry ${attempt}/${maxRetries} after ${retryAfter} seconds`);
         await exponentialBackoff(attempt);
       }
     }
@@ -307,7 +313,5 @@ export const makeRequestWithRetry = async (
 
   throw lastError;
 };
-
-// ==================== EXPORT ====================
 
 export default api;

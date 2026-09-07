@@ -65,7 +65,7 @@ class StockTransferService {
   }): Promise<any> {
     try {
       const response = await this.api.get("/stock-requests", { params });
-      console.log('📦 getRequests response:', response);
+      console.log("📦 getRequests response:", response);
       return response;
     } catch (error) {
       console.error("❌ Error fetching requests:", error);
@@ -76,7 +76,7 @@ class StockTransferService {
   async getRequest(id: number): Promise<any> {
     try {
       const response = await this.api.get(`/stock-requests/${id}`);
-      console.log('📦 getRequest response:', response);
+      console.log("📦 getRequest response:", response);
       return response;
     } catch (error) {
       console.error(`❌ Error fetching request ${id}:`, error);
@@ -96,7 +96,10 @@ class StockTransferService {
 
   async approveRequest(id: number, data: ApproveRequestData): Promise<any> {
     try {
-      const response = await this.api.post(`/stock-requests/${id}/approve`, data);
+      const response = await this.api.post(
+        `/stock-requests/${id}/approve`,
+        data,
+      );
       return response;
     } catch (error) {
       console.error(`❌ Error approving request ${id}:`, error);
@@ -114,6 +117,24 @@ class StockTransferService {
     }
   }
 
+  // ✅ Add this method
+  async getPendingRequests(params?: {
+    outlet_id?: number;
+    search?: string;
+  }): Promise<any> {
+    try {
+      const response = await this.api.get(
+        "/stock-requests/pending-for-despatch",
+        { params },
+      );
+      console.log("📦 getPendingRequests response:", response);
+      return response;
+    } catch (error) {
+      console.error("❌ Error fetching pending requests:", error);
+      throw error;
+    }
+  }
+
   // ============ DESPATCH ============
   async getDespatches(params?: {
     outlet_id?: number;
@@ -127,7 +148,7 @@ class StockTransferService {
   }): Promise<any> {
     try {
       const response = await this.api.get("/stock-despatches", { params });
-      console.log('📦 getDespatches response:', response);
+      console.log("📦 getDespatches response:", response);
       return response;
     } catch (error) {
       console.error("❌ Error fetching despatches:", error);
@@ -138,7 +159,7 @@ class StockTransferService {
   async getDespatch(id: number): Promise<any> {
     try {
       const response = await this.api.get(`/stock-despatches/${id}`);
-      console.log('📦 getDespatch response:', response);
+      console.log("📦 getDespatch response:", response);
       return response;
     } catch (error) {
       console.error(`❌ Error fetching despatch ${id}:`, error);
@@ -149,7 +170,7 @@ class StockTransferService {
   async createDespatch(data: CreateDespatchData): Promise<any> {
     try {
       const response = await this.api.post("/stock-despatches", data);
-      console.log('📦 createDespatch response:', response);
+      console.log("📦 createDespatch response:", response);
       return response;
     } catch (error) {
       console.error("❌ Error creating despatch:", error);
@@ -160,7 +181,9 @@ class StockTransferService {
   // ✅ Update despatch status
   async updateDespatchStatus(id: number, status: number): Promise<any> {
     try {
-      const response = await this.api.put(`/stock-despatches/${id}/status`, { status });
+      const response = await this.api.put(`/stock-despatches/${id}/status`, {
+        status,
+      });
       return response;
     } catch (error) {
       console.error(`❌ Error updating despatch ${id} status:`, error);
@@ -183,7 +206,9 @@ class StockTransferService {
   async getDespatchStatistics(outletId?: number): Promise<any> {
     try {
       const params = outletId ? { outlet_id: outletId } : {};
-      const response = await this.api.get("/stock-despatches/statistics", { params });
+      const response = await this.api.get("/stock-despatches/statistics", {
+        params,
+      });
       return response;
     } catch (error) {
       console.error("❌ Error fetching despatch statistics:", error);
@@ -231,7 +256,9 @@ class StockTransferService {
   // ✅ Update receive status
   async updateReceiveStatus(id: number, status: number): Promise<any> {
     try {
-      const response = await this.api.put(`/stock-receives/${id}/status`, { status });
+      const response = await this.api.put(`/stock-receives/${id}/status`, {
+        status,
+      });
       return response;
     } catch (error) {
       console.error(`❌ Error updating receive ${id} status:`, error);
@@ -239,21 +266,37 @@ class StockTransferService {
     }
   }
 
-  // src/services/StockTransferService.ts
-
-  // ✅ Add this method
-  async getPendingRequests(params?: {
-      outlet_id?: number;
-      search?: string;
+  // ✅ Pending despatches (for outlet-scoped receive screen)
+  async getPendingDespatches(params?: {
+    outlet_id?: number | string;
   }): Promise<any> {
-      try {
-          const response = await this.api.get("/stock-requests/pending-for-despatch", { params });
-          console.log('📦 getPendingRequests response:', response);
-          return response;
-      } catch (error) {
-          console.error("❌ Error fetching pending requests:", error);
-          throw error;
-      }
+    try {
+      const response = await this.api.get("/stock-receives/pending", {
+        params,
+      });
+      console.log("📦 getPendingDespatches response:", response);
+      return response;
+    } catch (error) {
+      console.error("❌ Error fetching pending despatches:", error);
+      throw error;
+    }
+  }
+
+  // ✅ One-click receive all items of a despatch
+  async receiveAllDespatch(
+    despatchId: number,
+    payload?: { receive_date?: string; remarks?: string },
+  ): Promise<any> {
+    try {
+      const response = await this.api.post(
+        `/stock-receives/${despatchId}/receive-all`,
+        payload,
+      );
+      return response;
+    } catch (error) {
+      console.error(`❌ Error receiving despatch ${despatchId}:`, error);
+      throw error;
+    }
   }
 }
 

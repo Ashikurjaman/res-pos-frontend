@@ -94,6 +94,7 @@ import LineChart from "./pages/Charts/LineChart";
 import BarChart from "./pages/Charts/BarChart";
 import FoodTypeList from "./pages/FoodType/FoodTypeList";
 import FoodTypeForm from "./pages/FoodType/FoodTypeForm";
+import StockReceivePending from "./pages/StockTransfer/StockReceivePending";
 
 export default function App() {
   return (
@@ -160,19 +161,44 @@ export default function App() {
 
               {/* Stock Requests */}
               <Route path="/stock-requests" element={<StockRequestList />} />
-              <Route path="/stock-requests/new" element={<StockRequestForm />} />
-              <Route path="/stock-requests/:id" element={<StockRequestDetails />} />
-              <Route path="/stock-requests/:id/approve" element={<StockRequestApproval />} />
+              <Route
+                path="/stock-requests/new"
+                element={<StockRequestForm />}
+              />
+              <Route
+                path="/stock-requests/:id"
+                element={<StockRequestDetails />}
+              />
+              <Route
+                path="/stock-requests/:id/approve"
+                element={<StockRequestApproval />}
+              />
 
               {/* Stock Despatches */}
               <Route path="/stock-despatches" element={<StockDespatchList />} />
-              <Route path="/stock-despatches/new" element={<StockDespatchForm />} />
-              <Route path="/stock-despatches/:id" element={<StockDespatchDetails />} />
+              <Route
+                path="/stock-despatches/new"
+                element={<StockDespatchForm />}
+              />
+              <Route
+                path="/stock-despatches/:id"
+                element={<StockDespatchDetails />}
+              />
 
               {/* Stock Receives */}
               <Route path="/stock-receives" element={<StockReceiveList />} />
-              <Route path="/stock-receives/new" element={<StockReceiveForm />} />
-              <Route path="/stock-receives/:id" element={<StockReceiveDetails />} />
+              <Route
+                path="/stock-receives/pending"
+                element={<StockReceivePending />}
+              />
+              <Route
+                path="/stock-receives/new"
+                element={<StockReceiveForm />}
+              />
+              <Route
+                path="/stock-receives/:id"
+                element={<StockReceiveDetails />}
+              />
 
               {/* Company Routes */}
               <Route path="/companies" element={<CompanyList />} />

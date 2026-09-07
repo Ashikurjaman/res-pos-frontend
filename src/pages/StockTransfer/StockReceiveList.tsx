@@ -24,16 +24,26 @@ import {
   AlertCircle,
 } from "lucide-react";
 import StockTransferService from "../../services/StockTransferService";
+import OutletService from "../../services/OutletService"; // adjust path/name if different
 import { OutletReceive, RECEIVE_STATUS } from "../../type/stock-transfer";
+
+interface Outlet {
+  id: number;
+  outlet_name: string;
+}
 
 export default function StockReceiveList() {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+
+  const isSuperadmin = (user?.role || "").trim().toLowerCase() === "superadmin";
 
   const [receives, setReceives] = useState<OutletReceive[]>([]);
+  const [outlets, setOutlets] = useState<Outlet[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<number | null>(null);
+  const [filterOutlet, setFilterOutlet] = useState<string>("");
   const [filteredReceives, setFilteredReceives] = useState<OutletReceive[]>([]);
 
   useEffect(() => {
@@ -42,64 +52,46 @@ export default function StockReceiveList() {
     }
   }, [isAuthenticated, navigate]);
 
-  useEffect(() => {
-    fetchReceives();
-  }, []);
-
-  useEffect(() => {
-    let filtered = receives;
-
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (r) =>
-          (r.receive_no?.toLowerCase().includes(term) || false) ||
-          (r.receiving_outlet?.outlet_name?.toLowerCase().includes(term) || false) ||
-          (r.despatch?.despatch_no?.toLowerCase().includes(term) || false),
-      );
+  const fetchOutlets = useCallback(async () => {
+    if (!isSuperadmin) return;
+    try {
+      const response = await OutletService.getOutlets();
+      const list = response?.data?.data || response?.data || response || [];
+      setOutlets(Array.isArray(list) ? list : []);
+    } catch (error) {
+      console.error("❌ Error fetching outlets:", error);
     }
-
-    if (filterStatus !== null) {
-      filtered = filtered.filter((r) => r.status === filterStatus);
-    }
-
-    setFilteredReceives(filtered);
-  }, [searchTerm, filterStatus, receives]);
+  }, [isSuperadmin]);
 
   const fetchReceives = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await StockTransferService.getReceives();
+      const params: any = {};
+      if (isSuperadmin && filterOutlet) {
+        params.outlet_id = filterOutlet;
+      }
+
+      const response = await StockTransferService.getReceives(params);
       console.log("📦 API Response:", response);
 
       // Extract data safely - handle different response formats
       let receivesData: OutletReceive[] = [];
 
       if (response) {
-        // Case 1: response.data.data (Laravel pagination)
         if (response.data && Array.isArray(response.data.data)) {
           receivesData = response.data.data;
-        }
-        // Case 2: response.data is an array
-        else if (response.data && Array.isArray(response.data)) {
+        } else if (response.data && Array.isArray(response.data)) {
           receivesData = response.data;
-        }
-        // Case 3: response itself is an array
-        else if (Array.isArray(response)) {
+        } else if (Array.isArray(response)) {
           receivesData = response;
-        }
-        // Case 4: response has data property that's an object with data array
-        else if (response.data && typeof response.data === 'object') {
-          // Try to find any array property in the data object
+        } else if (response.data && typeof response.data === "object") {
           for (const key in response.data) {
             if (Array.isArray(response.data[key])) {
               receivesData = response.data[key];
               break;
             }
           }
-        }
-        // Case 5: response is an object with receives property
-        else if (response.receives && Array.isArray(response.receives)) {
+        } else if (response.receives && Array.isArray(response.receives)) {
           receivesData = response.receives;
         }
       }
@@ -129,7 +121,38 @@ export default function StockReceiveList() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isSuperadmin, filterOutlet]);
+
+  useEffect(() => {
+    fetchOutlets();
+  }, [fetchOutlets]);
+
+  useEffect(() => {
+    fetchReceives();
+  }, [fetchReceives]);
+
+  useEffect(() => {
+    let filtered = receives;
+
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(
+        (r) =>
+          r.receive_no?.toLowerCase().includes(term) ||
+          false ||
+          r.receiving_outlet?.outlet_name?.toLowerCase().includes(term) ||
+          false ||
+          r.despatch?.despatch_no?.toLowerCase().includes(term) ||
+          false,
+      );
+    }
+
+    if (filterStatus !== null) {
+      filtered = filtered.filter((r) => r.status === filterStatus);
+    }
+
+    setFilteredReceives(filtered);
+  }, [searchTerm, filterStatus, receives]);
 
   const getStatusBadge = (status: number) => {
     const configs: Record<
@@ -172,9 +195,10 @@ export default function StockReceiveList() {
   };
 
   const handleRefresh = () => {
-    fetchReceives();
     setSearchTerm("");
     setFilterStatus(null);
+    setFilterOutlet("");
+    fetchReceives();
   };
 
   if (loading) {
@@ -212,6 +236,7 @@ export default function StockReceiveList() {
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:placeholder-gray-400"
               />
             </div>
+
             <select
               value={filterStatus ?? ""}
               onChange={(e) =>
@@ -227,6 +252,21 @@ export default function StockReceiveList() {
               <option value="2">Partial</option>
               <option value="3">Discrepancy</option>
             </select>
+
+            {isSuperadmin && (
+              <select
+                value={filterOutlet}
+                onChange={(e) => setFilterOutlet(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+              >
+                <option value="">All Outlets</option>
+                {outlets.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.outlet_name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
           <button
             onClick={handleRefresh}
@@ -335,7 +375,9 @@ export default function StockReceiveList() {
                       <div className="flex flex-col items-center gap-2">
                         <Package className="w-12 h-12 text-gray-300 dark:text-gray-600" />
                         <p className="text-gray-500 dark:text-gray-400">
-                          {receives.length === 0 ? 'No receives found' : 'No matching receives found'}
+                          {receives.length === 0
+                            ? "No receives found"
+                            : "No matching receives found"}
                         </p>
                         {receives.length === 0 && (
                           <button
@@ -356,25 +398,26 @@ export default function StockReceiveList() {
                     >
                       <TableCell className="px-4 py-3">
                         <span className="font-medium text-green-600 dark:text-green-400">
-                          {receive.receive_no || `RCV-${String(receive.id).padStart(4, '0')}`}
+                          {receive.receive_no ||
+                            `RCV-${String(receive.id).padStart(4, "0")}`}
                         </span>
                       </TableCell>
                       <TableCell className="px-4 py-3 text-gray-600 dark:text-gray-300">
                         {receive.receive_date
                           ? new Date(receive.receive_date).toLocaleDateString()
-                          : 'N/A'}
+                          : "N/A"}
                       </TableCell>
                       <TableCell className="px-4 py-3">
                         <span className="text-blue-600 dark:text-blue-400">
                           {receive.despatch?.despatch_no ||
-                           receive.despatch_no ||
-                           `DESP-${String(receive.despatch_id).padStart(4, '0')}`}
+                            receive.despatch_no ||
+                            `DESP-${String(receive.despatch_id).padStart(4, "0")}`}
                         </span>
                       </TableCell>
                       <TableCell className="px-4 py-3 text-gray-600 dark:text-gray-300">
                         {receive.receiving_outlet?.outlet_name ||
-                         receive.receiving_outlet_name ||
-                         "Unknown"}
+                          receive.receiving_outlet_name ||
+                          "Unknown"}
                       </TableCell>
                       <TableCell className="px-4 py-3 text-center">
                         {getStatusBadge(receive.status)}
@@ -382,7 +425,7 @@ export default function StockReceiveList() {
                       <TableCell className="px-4 py-3 text-center">
                         <button
                           onClick={() =>
-                            navigate(`/stock-receive/${receive.id}`)
+                            navigate(`/stock-receives/${receive.id}`)
                           }
                           className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
                           title="View"
