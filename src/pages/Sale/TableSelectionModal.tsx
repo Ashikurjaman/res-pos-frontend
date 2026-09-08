@@ -42,7 +42,7 @@ export default function TableSelectionModal({
       }
       setError(null);
 
-      const url = `${API_CONFIG.baseURL}/api/tables/all`;
+      const url = `${API_CONFIG.baseURL}/tables/all`;
       const response = await axios.get(url);
       const tablesData = response.data?.data || [];
       setTables(tablesData);

@@ -1,4 +1,3 @@
-import axios from "axios";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Modal } from "../../components/ui/modal";
 import {
@@ -10,7 +9,7 @@ import {
   Grid,
   List,
 } from "lucide-react";
-import { API_CONFIG } from "../../config/api";
+import api from "../../services/api";
 
 interface Category {
   id: number;
@@ -53,11 +52,9 @@ export default function CategoryShow({ onAddToCart }: CategoryShowProps) {
   const [loadingProducts, setLoadingProducts] = useState<boolean>(false);
   const [productError, setProductError] = useState<string | null>(null);
 
-  // Track quantity by product id
   const [quantities, setQuantities] = useState<{ [key: number]: number }>({});
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
-  // Fetch categories on mount
   useEffect(() => {
     fetchCategories();
   }, []);
@@ -66,23 +63,13 @@ export default function CategoryShow({ onAddToCart }: CategoryShowProps) {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get(`${API_CONFIG.baseURL}/api/category`);
-      setCategories(response.data.data);
-    } catch (error) {
+      const response = await api.get(`/category`);
+      setCategories(response.data);
+    } catch (error: any) {
       console.error("Error fetching categories:", error);
-
-      let errorMessage = "Failed to load categories. Please try again.";
-      if (axios.isAxiosError(error)) {
-        if (error.response) {
-          errorMessage =
-            error.response.data?.message ||
-            error.response.statusText ||
-            `Server error: ${error.response.status}`;
-        } else if (error.request) {
-          errorMessage = "Network error - please check your connection";
-        }
-      }
-      setError(errorMessage);
+      setError(
+        error?.message || "Failed to load categories. Please try again.",
+      );
     } finally {
       setLoading(false);
     }
@@ -96,18 +83,16 @@ export default function CategoryShow({ onAddToCart }: CategoryShowProps) {
       setLoadingProducts(true);
       setProductError(null);
 
-      axios
-        .get(
-          `${API_CONFIG.baseURL}/api/products-load?category_id=${categoryId}`,
-        )
+      api
+        .get(`/products/by-category?category_id=${categoryId}`)
         .then((response) => {
-          // Ensure products is an array
-          let productsData = response.data;
+          let productsData = Array.isArray(response)
+            ? response
+            : response?.data;
           if (!Array.isArray(productsData)) {
             productsData = [];
           }
 
-          // Ensure price and stock are numbers
           productsData = productsData.map((p: any) => ({
             ...p,
             price: parseFloat(p.price) || 0,
@@ -118,30 +103,18 @@ export default function CategoryShow({ onAddToCart }: CategoryShowProps) {
 
           setProducts(productsData);
 
-          // Initialize quantities to 1 for new products
           const initialQuantities: { [key: number]: number } = {};
           productsData.forEach((p: Product) => {
             initialQuantities[p.id] = 1;
           });
           setQuantities(initialQuantities);
-
           setLoadingProducts(false);
         })
-        .catch((error) => {
+        .catch((error: any) => {
           console.error("Error fetching products:", error);
-
-          let errorMessage = "Failed to load products. Please try again.";
-          if (axios.isAxiosError(error)) {
-            if (error.response) {
-              errorMessage =
-                error.response.data?.message ||
-                error.response.statusText ||
-                `Server error: ${error.response.status}`;
-            } else if (error.request) {
-              errorMessage = "Network error - please check your connection";
-            }
-          }
-          setProductError(errorMessage);
+          setProductError(
+            error?.message || "Failed to load products. Please try again.",
+          );
           setProducts([]);
           setLoadingProducts(false);
         });
@@ -179,7 +152,6 @@ export default function CategoryShow({ onAddToCart }: CategoryShowProps) {
         sd: product.sd || 0,
       });
 
-      // Reset quantity to 1 after adding to cart
       setQuantities((prev) => ({
         ...prev,
         [product.id]: 1,
@@ -190,10 +162,19 @@ export default function CategoryShow({ onAddToCart }: CategoryShowProps) {
 
   const getStockStatus = useCallback((stock: number) => {
     if (stock <= 0)
-      return { label: "Out of Stock", color: "text-red-600 bg-red-50" };
+      return {
+        label: "Out of stock",
+        color: "text-red-700 bg-red-50 border-red-200",
+      };
     if (stock <= 5)
-      return { label: "Low Stock", color: "text-yellow-600 bg-yellow-50" };
-    return { label: "In Stock", color: "text-green-600 bg-green-50" };
+      return {
+        label: "Low stock",
+        color: "text-amber-700 bg-amber-50 border-amber-200",
+      };
+    return {
+      label: "In stock",
+      color: "text-emerald-700 bg-emerald-50 border-emerald-200",
+    };
   }, []);
 
   const availableProductsCount = useMemo(
@@ -201,32 +182,36 @@ export default function CategoryShow({ onAddToCart }: CategoryShowProps) {
     [products],
   );
 
-  // Loading state
+  // ---------- Loading state ----------
   if (loading) {
     return (
-      <div className="p-4 flex items-center justify-center h-64">
+      <div
+        className="flex items-center justify-center h-64 p-4"
+        role="status"
+        aria-label="Loading categories"
+      >
         <div className="flex flex-col items-center gap-3">
           <Loader2
-            className="w-8 h-8 animate-spin text-blue-500"
+            className="w-7 h-7 animate-spin text-blue-500"
             aria-hidden="true"
           />
-          <p className="text-gray-500 text-sm">Loading categories...</p>
+          <p className="text-gray-500 text-sm">Loading categories…</p>
         </div>
       </div>
     );
   }
 
-  // Error state
+  // ---------- Error state ----------
   if (error) {
     return (
       <div className="p-4">
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-          <p className="text-red-600 text-sm">{error}</p>
+          <p className="text-red-700 text-sm font-medium">{error}</p>
           <button
             onClick={fetchCategories}
-            className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="mt-3 px-4 py-2.5 min-h-[44px] bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           >
-            Retry
+            Try again
           </button>
         </div>
       </div>
@@ -234,248 +219,225 @@ export default function CategoryShow({ onAddToCart }: CategoryShowProps) {
   }
 
   return (
-    <div className="p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-800">Categories</h2>
-        <span className="text-xs text-gray-400">
-          {categories.length} categories
-        </span>
+    <div className="p-3 sm:p-4">
+      <div className="flex items-center justify-between mb-3 sm:mb-4">
+        <h2 className="text-base sm:text-lg font-semibold text-gray-900">
+          Categories
+        </h2>
+        <span className="text-xs text-gray-400">{categories.length} total</span>
       </div>
 
-      {/* Category Grid */}
-      <div className="grid grid-cols-2 gap-2 max-h-[70vh] overflow-y-auto pr-1">
+      {/* Category grid — auto-fill based on the CONTAINER's actual width,
+          not the viewport. This makes it adapt correctly whether CategoryShow
+          is embedded in a narrow sidebar or shown full-width. */}
+      <div
+        className="grid grid-cols-[repeat(auto-fill,minmax(88px,1fr))] gap-2 max-h-[70vh] overflow-y-auto pr-1"
+        role="list"
+        aria-label="Product categories"
+      >
         {categories.map((category) => (
           <button
             key={category.id}
             onClick={() =>
               handleCategoryClick(category.id, category.category_name)
             }
-            className="group relative bg-gradient-to-br from-blue-500 to-blue-600 text-white py-3 px-2 rounded-xl shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200 text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="min-h-[64px] sm:min-h-[72px] flex items-center justify-center text-center px-3 py-3 rounded-xl border border-blue-200 bg-blue-50 text-blue-800 font-medium text-sm hover:bg-blue-100 active:bg-blue-200 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           >
-            <span className="text-sm font-medium">
-              {category.category_name}
-            </span>
-            <div
-              className="absolute -top-1 -right-1 w-2 h-2 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-              aria-hidden="true"
-            ></div>
+            {category.category_name}
           </button>
         ))}
       </div>
 
-      {/* Products Modal */}
+      {/* Product panel — full-screen sheet on mobile, side panel from sm up */}
       <Modal
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
-        className="absolute inset-0 md:inset-auto md:mt-4 md:top-0 md:right-0 md:h-full md:w-[600px] bg-white dark:bg-gray-900 shadow-xl p-4 overflow-y-auto"
+        className="fixed inset-0 sm:inset-auto sm:top-0 sm:right-0 sm:h-full sm:w-[420px] md:w-[520px] bg-white shadow-xl flex flex-col"
       >
-        <div className="flex flex-col h-full">
-          {/* Modal Header */}
-          <div className="flex items-center justify-between pb-4 border-b border-gray-200">
-            <div>
-              <h3 className="text-xl font-semibold text-gray-800">
-                {selectedCategory}
-              </h3>
-              <p className="text-sm text-gray-500 mt-0.5">
-                {products.length} products available
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {/* View Toggle */}
-              <div className="flex border border-gray-200 rounded-lg overflow-hidden">
-                <button
-                  onClick={() => setViewMode("grid")}
-                  className={`p-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    viewMode === "grid"
-                      ? "bg-blue-500 text-white"
-                      : "bg-white text-gray-500 hover:bg-gray-50"
-                  }`}
-                  aria-label="Grid view"
-                >
-                  <Grid size={16} aria-hidden="true" />
-                </button>
-                <button
-                  onClick={() => setViewMode("list")}
-                  className={`p-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    viewMode === "list"
-                      ? "bg-blue-500 text-white"
-                      : "bg-white text-gray-500 hover:bg-gray-50"
-                  }`}
-                  aria-label="List view"
-                >
-                  <List size={16} aria-hidden="true" />
-                </button>
-              </div>
+        {/* Sticky header */}
+        <div className="flex-shrink-0 flex items-center justify-between gap-2 px-4 py-3 border-b border-gray-200">
+          <div className="min-w-0">
+            <h3 className="text-lg font-semibold text-gray-900 truncate">
+              {selectedCategory}
+            </h3>
+            <p className="text-xs text-gray-500">
+              {products.length} products · {availableProductsCount} available
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <div className="flex border border-gray-200 rounded-lg overflow-hidden">
               <button
-                onClick={() => setIsOpen(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-                aria-label="Close modal"
+                onClick={() => setViewMode("grid")}
+                className={`p-2 min-w-[40px] min-h-[40px] flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  viewMode === "grid"
+                    ? "bg-blue-600 text-white"
+                    : "bg-white text-gray-500 hover:bg-gray-50"
+                }`}
+                aria-label="Grid view"
+                aria-pressed={viewMode === "grid"}
               >
-                <X size={20} aria-hidden="true" />
+                <Grid size={16} aria-hidden="true" />
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                className={`p-2 min-w-[40px] min-h-[40px] flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  viewMode === "list"
+                    ? "bg-blue-600 text-white"
+                    : "bg-white text-gray-500 hover:bg-gray-50"
+                }`}
+                aria-label="List view"
+                aria-pressed={viewMode === "list"}
+              >
+                <List size={16} aria-hidden="true" />
               </button>
             </div>
-          </div>
-
-          {/* Products Content */}
-          <div className="flex-1 overflow-y-auto py-4">
-            {loadingProducts ? (
-              <div
-                className="flex flex-col items-center justify-center h-40 gap-3"
-                role="status"
-                aria-label="Loading products"
-              >
-                <Loader2
-                  className="w-8 h-8 animate-spin text-blue-500"
-                  aria-hidden="true"
-                />
-                <p className="text-gray-500 text-sm">Loading products...</p>
-              </div>
-            ) : productError ? (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-                <p className="text-red-600 text-sm">{productError}</p>
-                <button
-                  onClick={() =>
-                    selectedCategoryId &&
-                    handleCategoryClick(
-                      selectedCategoryId,
-                      selectedCategory || "",
-                    )
-                  }
-                  className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                >
-                  Retry
-                </button>
-              </div>
-            ) : products.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-40 gap-2">
-                <ShoppingCart
-                  className="w-12 h-12 text-gray-300"
-                  aria-hidden="true"
-                />
-                <p className="text-gray-500">
-                  No products found in this category
-                </p>
-              </div>
-            ) : (
-              <div
-                className={
-                  viewMode === "grid"
-                    ? "grid grid-cols-1 sm:grid-cols-2 gap-3"
-                    : "flex flex-col gap-2"
-                }
-              >
-                {products.map((product) => {
-                  const stockStatus = getStockStatus(product.stock);
-                  const quantity = quantities[product.id] || 1;
-                  const isOutOfStock = product.stock <= 0;
-
-                  return (
-                    <div
-                      key={product.id}
-                      className={`border rounded-lg p-3 transition-all hover:shadow-md ${
-                        viewMode === "grid"
-                          ? "flex flex-col"
-                          : "flex items-center gap-4"
-                      } ${isOutOfStock ? "opacity-60 bg-gray-50" : "bg-white"}`}
-                    >
-                      {/* Product Info */}
-                      <div
-                        className={`flex-1 ${viewMode === "grid" ? "mb-2" : ""}`}
-                      >
-                        <h4 className="font-medium text-gray-800 text-sm">
-                          {product.product_name}
-                        </h4>
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <span className="text-lg font-bold text-blue-600">
-                            ৳{product.price.toFixed(2)}
-                          </span>
-                          <span
-                            className={`text-xs px-2 py-0.5 rounded-full ${stockStatus.color}`}
-                          >
-                            {stockStatus.label}
-                          </span>
-                          {product.stock > 0 && (
-                            <span className="text-xs text-gray-400">
-                              Stock: {product.stock}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      {!isOutOfStock && (
-                        <div
-                          className={`flex items-center gap-2 ${viewMode === "grid" ? "justify-between" : ""}`}
-                        >
-                          <div className="flex items-center border border-gray-200 rounded-lg">
-                            <button
-                              onClick={() =>
-                                handleQuantityChange(product.id, -1)
-                              }
-                              className="p-1.5 hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              disabled={quantity <= 1}
-                              aria-label="Decrease quantity"
-                            >
-                              <Minus
-                                size={14}
-                                className={
-                                  quantity <= 1
-                                    ? "text-gray-300"
-                                    : "text-gray-600"
-                                }
-                                aria-hidden="true"
-                              />
-                            </button>
-                            <span className="w-8 text-center text-sm font-medium">
-                              {quantity}
-                            </span>
-                            <button
-                              onClick={() =>
-                                handleQuantityChange(product.id, 1)
-                              }
-                              className="p-1.5 hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              disabled={quantity >= product.stock}
-                              aria-label="Increase quantity"
-                            >
-                              <Plus
-                                size={14}
-                                className={
-                                  quantity >= product.stock
-                                    ? "text-gray-300"
-                                    : "text-gray-600"
-                                }
-                                aria-hidden="true"
-                              />
-                            </button>
-                          </div>
-                          <button
-                            onClick={() => handleAddToCart(product)}
-                            className="bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                          >
-                            <ShoppingCart size={14} aria-hidden="true" />
-                            Add
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Modal Footer */}
-          <div className="pt-4 border-t border-gray-200 flex justify-between items-center">
-            <span className="text-sm text-gray-500">
-              {availableProductsCount} products available
-            </span>
             <button
               onClick={() => setIsOpen(false)}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+              className="p-2 min-w-[40px] min-h-[40px] flex items-center justify-center hover:bg-gray-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Close"
             >
-              Close
+              <X size={20} aria-hidden="true" />
             </button>
           </div>
+        </div>
+
+        {/* Scrollable product list */}
+        <div className="flex-1 overflow-y-auto px-4 py-3">
+          {loadingProducts ? (
+            <div
+              className="flex flex-col items-center justify-center h-40 gap-3"
+              role="status"
+            >
+              <Loader2
+                className="w-7 h-7 animate-spin text-blue-500"
+                aria-hidden="true"
+              />
+              <p className="text-gray-500 text-sm">Loading products…</p>
+            </div>
+          ) : productError ? (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+              <p className="text-red-700 text-sm font-medium">{productError}</p>
+              <button
+                onClick={() =>
+                  selectedCategoryId &&
+                  handleCategoryClick(
+                    selectedCategoryId,
+                    selectedCategory || "",
+                  )
+                }
+                className="mt-3 px-4 py-2.5 min-h-[44px] bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                Try again
+              </button>
+            </div>
+          ) : products.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-40 gap-2 text-center">
+              <ShoppingCart
+                className="w-10 h-10 text-gray-300"
+                aria-hidden="true"
+              />
+              <p className="text-gray-500 text-sm">
+                No products in this category yet
+              </p>
+            </div>
+          ) : (
+            <div
+              className={
+                viewMode === "grid"
+                  ? "grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-1 md:grid-cols-2 gap-3"
+                  : "flex flex-col gap-2"
+              }
+            >
+              {products.map((product) => {
+                const stockStatus = getStockStatus(product.stock);
+                const quantity = quantities[product.id] || 1;
+                const isOutOfStock = product.stock <= 0;
+
+                return (
+                  <div
+                    key={product.id}
+                    className={`border rounded-xl p-3 transition-colors ${
+                      viewMode === "grid"
+                        ? "flex flex-col gap-2"
+                        : "flex items-center gap-3"
+                    } ${isOutOfStock ? "bg-gray-50 border-gray-200" : "bg-white border-gray-200"}`}
+                  >
+                    <div
+                      className={viewMode === "grid" ? "" : "flex-1 min-w-0"}
+                    >
+                      <h4 className="font-medium text-gray-900 text-sm truncate">
+                        {product.product_name}
+                      </h4>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <span className="text-base font-bold text-blue-700">
+                          ৳{product.price.toFixed(2)}
+                        </span>
+                        <span
+                          className={`text-[11px] px-2 py-0.5 rounded-full border font-medium ${stockStatus.color}`}
+                        >
+                          {stockStatus.label}
+                        </span>
+                        {product.stock > 0 && (
+                          <span className="text-[11px] text-gray-400">
+                            {product.stock} left
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {!isOutOfStock && (
+                      <div
+                        className={`flex items-center gap-2 ${
+                          viewMode === "grid"
+                            ? "justify-between mt-1"
+                            : "flex-shrink-0"
+                        }`}
+                      >
+                        <div className="flex items-center border border-gray-200 rounded-lg">
+                          <button
+                            onClick={() => handleQuantityChange(product.id, -1)}
+                            className="w-9 h-9 flex items-center justify-center hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-40"
+                            disabled={quantity <= 1}
+                            aria-label={`Decrease quantity of ${product.product_name}`}
+                          >
+                            <Minus size={14} aria-hidden="true" />
+                          </button>
+                          <span className="w-8 text-center text-sm font-medium tabular-nums">
+                            {quantity}
+                          </span>
+                          <button
+                            onClick={() => handleQuantityChange(product.id, 1)}
+                            className="w-9 h-9 flex items-center justify-center hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-40"
+                            disabled={quantity >= product.stock}
+                            aria-label={`Increase quantity of ${product.product_name}`}
+                          >
+                            <Plus size={14} aria-hidden="true" />
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => handleAddToCart(product)}
+                          className="min-h-[36px] px-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors text-sm font-medium flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                        >
+                          <ShoppingCart size={14} aria-hidden="true" />
+                          Add
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Sticky footer, safe-area aware for mobile home-bar */}
+        <div className="flex-shrink-0 px-4 py-3 border-t border-gray-200 bg-gray-50 pb-[env(safe-area-inset-bottom)]">
+          <button
+            onClick={() => setIsOpen(false)}
+            className="w-full min-h-[44px] px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+          >
+            Done
+          </button>
         </div>
       </Modal>
     </div>

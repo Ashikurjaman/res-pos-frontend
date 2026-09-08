@@ -72,7 +72,7 @@ export default function SaleList() {
     setLoading(true);
 
     try {
-      const response = await axios.get(`${API_CONFIG.baseURL}/api/sale-list`, {
+      const response = await axios.get(`${API_CONFIG.baseURL}/sale-list`, {
         params: {
           formDate: formData.formDate,
           toDate: formData.toDate,
@@ -162,10 +162,10 @@ export default function SaleList() {
         <title>Invoice #${sale.invoiceNo}</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { 
-            font-family: 'Courier New', monospace; 
-            font-size: 13px; 
-            padding: 15px; 
+          body {
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            padding: 15px;
             width: 280px;
             margin: 0 auto;
             background: white;
@@ -309,7 +309,7 @@ export default function SaleList() {
     if (!result.isConfirmed) return;
 
     try {
-      await axios.delete(`${API_CONFIG.baseURL}/api/sale-list/${id}`);
+      await axios.delete(`${API_CONFIG.baseURL}/sale-list/${id}`);
 
       Swal.fire({
         icon: "success",
@@ -355,7 +355,7 @@ export default function SaleList() {
 
     setUpdatingPayment(true);
     try {
-      await axios.put(`${API_CONFIG.baseURL}/api/sales/${id}/update`, {
+      await axios.put(`${API_CONFIG.baseURL}/sales/${id}/update`, {
         paymentMode: editingPaymentValue,
       });
 

@@ -5,7 +5,7 @@ import InvoiceDetails from "./InvoiceDetails";
 import TableSelector from "./TableSelector";
 import TableSelectionModal from "./TableSelectionModal";
 import Alert from "../../components/ui/alert/Alert";
-import axios from "axios";
+import api from "../../services/api";
 import {
   RefreshCw,
   AlertTriangle,
@@ -13,7 +13,6 @@ import {
   XCircle,
   Grid3x3,
 } from "lucide-react";
-import { API_CONFIG } from "../../config/api";
 
 interface CartItem {
   id: number;
@@ -78,14 +77,12 @@ export default function CreateSale({
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isTableModalOpen, setIsTableModalOpen] = useState<boolean>(false);
 
-  // Calculate total amount
   const totalAmount = useMemo(
     () =>
       cart.reduce((sum, product) => sum + product.price * product.quantity, 0),
     [cart],
   );
 
-  // Load cart when selected table changes
   useEffect(() => {
     if (selectedTable) {
       loadCartForTable(selectedTable.id);
@@ -96,25 +93,30 @@ export default function CreateSale({
     }
   }, [selectedTable]);
 
-  // Save cart to localStorage
   useEffect(() => {
     if (selectedTable) {
-      const key = `cartItems_${selectedTable.id}`;
-      localStorage.setItem(key, JSON.stringify(cart));
+      localStorage.setItem(
+        `cartItems_${selectedTable.id}`,
+        JSON.stringify(cart),
+      );
     }
   }, [cart, selectedTable]);
 
   useEffect(() => {
     if (selectedTable) {
-      const key = `editedProducts_${selectedTable.id}`;
-      localStorage.setItem(key, JSON.stringify(editedProducts));
+      localStorage.setItem(
+        `editedProducts_${selectedTable.id}`,
+        JSON.stringify(editedProducts),
+      );
     }
   }, [editedProducts, selectedTable]);
 
   useEffect(() => {
     if (selectedTable) {
-      const key = `printedItems_${selectedTable.id}`;
-      localStorage.setItem(key, JSON.stringify(printedItems));
+      localStorage.setItem(
+        `printedItems_${selectedTable.id}`,
+        JSON.stringify(printedItems),
+      );
     }
   }, [printedItems, selectedTable]);
 
@@ -131,13 +133,9 @@ export default function CreateSale({
   }, [saleStatus]);
 
   const loadCartForTable = useCallback((tableId: number) => {
-    const cartKey = `cartItems_${tableId}`;
-    const editedKey = `editedProducts_${tableId}`;
-    const printedKey = `printedItems_${tableId}`;
-
-    const storedCart = localStorage.getItem(cartKey);
-    const storedEdited = localStorage.getItem(editedKey);
-    const storedPrinted = localStorage.getItem(printedKey);
+    const storedCart = localStorage.getItem(`cartItems_${tableId}`);
+    const storedEdited = localStorage.getItem(`editedProducts_${tableId}`);
+    const storedPrinted = localStorage.getItem(`printedItems_${tableId}`);
 
     setCart(storedCart ? JSON.parse(storedCart) : []);
     setEditedProducts(storedEdited ? JSON.parse(storedEdited) : []);
@@ -163,7 +161,8 @@ export default function CreateSale({
 
     setIsSaving(true);
     try {
-      await axios.put(`${API_CONFIG.baseURL}/api/sales/${currentSaleId}`, {
+      // "api" already unwraps response.data — no need to read response.data here
+      await api.put(`/sales/${currentSaleId}`, {
         table_id: selectedTable?.id,
         products: cart.map((item) => ({
           id: item.id,
@@ -194,7 +193,7 @@ export default function CreateSale({
     ) {
       const timer = setTimeout(() => {
         autoSaveSale();
-      }, 1000); // Debounce auto-save
+      }, 1000);
 
       return () => clearTimeout(timer);
     }
@@ -207,11 +206,10 @@ export default function CreateSale({
       loadCartForTable(table.id);
 
       try {
-        const response = await axios.get(
-          `${API_CONFIG.baseURL}/api/sales/table/${table.id}/active`,
-        );
-        if (response.data && response.data.data) {
-          const existingSale = response.data.data;
+        // ✅ fixed: was missing a leading "/" before "sales" — malformed URL
+        const response = await api.get(`/sales/table/${table.id}/active`);
+        if (response?.data) {
+          const existingSale = response.data;
           setCurrentSaleId(existingSale.id);
           setSaleStatus(existingSale.status || "active");
           triggerAlert(`Continuing with Table ${table.table_name}`, "success");
@@ -222,17 +220,14 @@ export default function CreateSale({
       }
 
       try {
-        const response = await axios.post(
-          `${API_CONFIG.baseURL}/api/sales/initialize`,
-          {
-            table_id: table.id,
-            status: "active",
-          },
-        );
-        setCurrentSaleId(response.data.sale_id);
+        const response = await api.post(`/sales/initialize`, {
+          table_id: table.id,
+          status: "active",
+        });
+        setCurrentSaleId(response?.sale_id);
         localStorage.setItem(
           "currentSaleId",
-          JSON.stringify(response.data.sale_id),
+          JSON.stringify(response?.sale_id),
         );
 
         triggerAlert(
@@ -241,20 +236,10 @@ export default function CreateSale({
         );
       } catch (error: any) {
         console.error("Failed to initialize sale:", error);
-
-        let errorMessage = "Failed to initialize sale for this table!";
-        if (error.response) {
-          errorMessage =
-            error.response.data?.message ||
-            error.response.statusText ||
-            `Server error: ${error.response.status}`;
-        } else if (error.request) {
-          errorMessage = "Network error - please check your connection";
-        } else if (error.message) {
-          errorMessage = error.message;
-        }
-
-        triggerAlert(errorMessage, "error");
+        triggerAlert(
+          error?.message || "Failed to initialize sale for this table!",
+          "error",
+        );
       }
     },
     [loadCartForTable, triggerAlert],
@@ -282,12 +267,9 @@ export default function CreateSale({
 
       if (selectedTable.status === "available" && cart.length === 0) {
         try {
-          await axios.put(
-            `${API_CONFIG.baseURL}/api/tables/${selectedTable.id}/status`,
-            {
-              status: "occupied",
-            },
-          );
+          await api.put(`/tables/${selectedTable.id}/status`, {
+            status: "occupied",
+          });
           setSelectedTable({
             ...selectedTable,
             status: "occupied",
@@ -352,12 +334,9 @@ export default function CreateSale({
 
     if (selectedTable) {
       try {
-        await axios.put(
-          `${API_CONFIG.baseURL}/api/tables/${selectedTable.id}/status`,
-          {
-            status: "available",
-          },
-        );
+        await api.put(`/tables/${selectedTable.id}/status`, {
+          status: "available",
+        });
         setSelectedTable({
           ...selectedTable,
           status: "available",
@@ -366,6 +345,8 @@ export default function CreateSale({
         console.error("Failed to update table status:", error);
       }
     }
+
+    const tableId = selectedTable?.id;
 
     setCart([]);
     setEditedProducts([]);
@@ -376,10 +357,10 @@ export default function CreateSale({
     localStorage.removeItem("selectedTable");
     localStorage.removeItem("currentSaleId");
     localStorage.removeItem("saleStatus");
-    if (selectedTable) {
-      localStorage.removeItem(`cartItems_${selectedTable.id}`);
-      localStorage.removeItem(`editedProducts_${selectedTable.id}`);
-      localStorage.removeItem(`printedItems_${selectedTable.id}`);
+    if (tableId) {
+      localStorage.removeItem(`cartItems_${tableId}`);
+      localStorage.removeItem(`editedProducts_${tableId}`);
+      localStorage.removeItem(`printedItems_${tableId}`);
     }
     triggerAlert("Cart cleared successfully!", "success");
   }, [cart.length, selectedTable, triggerAlert]);
@@ -435,11 +416,10 @@ export default function CreateSale({
   }, [saleStatus]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-2 sm:p-4 md:p-6">
-      {/* Alert */}
+    <div className="min-h-screen bg-gray-50 p-2 sm:p-3 md:p-4">
       {stockAlert.show && (
         <div
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] sm:w-auto sm:max-w-md md:max-w-lg animate-slideDown"
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] sm:w-auto sm:max-w-md md:max-w-lg"
           role="alert"
           aria-live="polite"
         >
@@ -458,38 +438,40 @@ export default function CreateSale({
       )}
 
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Create Sale</h1>
-            <p className="text-sm text-gray-600 mt-1">
+        {/* Header — stacks on mobile, row on larger screens */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+              Create Sale
+            </h1>
+            <p className="text-sm text-gray-600 mt-0.5 truncate">
               {selectedTable
                 ? `Table: ${selectedTable.table_name} (${selectedTable.table_number})`
                 : "Select a table to start"}
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-shrink-0">
             <button
               onClick={handleViewTables}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+              className="flex items-center gap-2 px-4 py-2.5 min-h-[44px] bg-purple-600 text-white rounded-lg hover:bg-purple-700 active:bg-purple-800 transition-colors text-sm font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
             >
               <Grid3x3 size={18} aria-hidden="true" />
-              Change Table
+              Change table
             </button>
 
             {lastSaved && (
-              <div className="text-xs text-gray-400 flex items-center gap-1">
+              <div className="text-xs text-gray-400 flex items-center gap-1 flex-shrink-0">
                 <RefreshCw className="w-3 h-3" aria-hidden="true" />
-                Auto-saved
+                Saved
               </div>
             )}
           </div>
         </div>
 
-        {/* Table Selector */}
+        {/* Table Selector (shown until a table is picked) */}
         {!selectedTable && (
-          <div className="max-w-7xl mx-auto mb-4">
+          <div className="mb-4">
             <TableSelector
               onTableSelect={handleTableSelect}
               selectedTable={selectedTable}
@@ -497,14 +479,12 @@ export default function CreateSale({
           </div>
         )}
 
-        {/* Status Bar */}
+        {/* Status bar */}
         {selectedTable && (
-          <div
-            className={`max-w-7xl mx-auto mb-4 p-3 rounded-lg shadow-sm border ${getStatusColor()}`}
-          >
+          <div className={`mb-4 p-3 rounded-lg border ${getStatusColor()}`}>
             <div className="flex flex-wrap justify-between items-center gap-2">
-              <div className="flex items-center gap-4 flex-wrap">
-                <span className="font-semibold flex items-center gap-2">
+              <div className="flex items-center gap-3 flex-wrap text-sm">
+                <span className="font-semibold flex items-center gap-1.5 flex-wrap">
                   <span className="text-gray-600">Table:</span>
                   <span className="text-gray-900">
                     {selectedTable.table_name}
@@ -513,16 +493,13 @@ export default function CreateSale({
                     ({selectedTable.table_number})
                   </span>
                 </span>
-                <span
-                  className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor()}`}
-                >
+                <span className="flex items-center gap-1 px-2.5 py-1 rounded-full font-medium bg-white/60">
                   {getStatusIcon()}
-                  Status:{" "}
                   {saleStatus.charAt(0).toUpperCase() + saleStatus.slice(1)}
                 </span>
                 {currentSaleId && (
                   <span className="text-xs text-gray-500">
-                    Sale ID: #{currentSaleId}
+                    #{currentSaleId}
                   </span>
                 )}
                 {cart.length > 0 && (
@@ -534,28 +511,31 @@ export default function CreateSale({
               {saleStatus === "printed" && (
                 <button
                   onClick={handleClearCart}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  className="min-h-[40px] bg-blue-600 text-white px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                 >
-                  New Sale
+                  New sale
                 </button>
               )}
             </div>
           </div>
         )}
 
-        {/* Main Grid */}
+        {/* Main layout:
+            - mobile/tablet: single column, natural reading order
+              (pick a category → see the cart → check the invoice)
+            - lg+: 3-column workspace with the category rail slightly
+              wider (3/12) so it isn't cramped, cart in the middle (6/12),
+              invoice fixed on the right (3/12) */}
         {selectedTable && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 md:gap-4">
-            {/* Categories */}
-            <div className="lg:col-span-2 order-2 lg:order-1">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2 sm:p-3 md:p-4">
+            <div className="lg:col-span-3">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-4">
                 <CategoryShow onAddToCart={handleAddToCart} />
               </div>
             </div>
 
-            {/* Products */}
-            <div className="lg:col-span-7 order-1 lg:order-2">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2 sm:p-3 md:p-4">
+            <div className="lg:col-span-6">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-4">
                 <AddToCartProduct
                   cart={cart}
                   onUpdateQuantity={handleQuantityChange}
@@ -569,9 +549,8 @@ export default function CreateSale({
               </div>
             </div>
 
-            {/* Invoice Details */}
-            <div className="lg:col-span-3 order-3">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2 sm:p-3 md:p-4 sticky lg:top-4">
+            <div className="lg:col-span-3">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-4 lg:sticky lg:top-4">
                 <InvoiceDetails
                   cart={cart}
                   setCart={setCart}
@@ -588,7 +567,6 @@ export default function CreateSale({
         )}
       </div>
 
-      {/* Table Selection Modal */}
       {isTableModalOpen && (
         <TableSelectionModal
           isOpen={isTableModalOpen}

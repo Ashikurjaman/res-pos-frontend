@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
-import axios from "axios";
 import { Check, X, Clock, RefreshCw, AlertCircle } from "lucide-react";
 import { API_CONFIG } from "../../config/api";
+import api from "../../services/api";
 
 interface Table {
   id: number;
@@ -38,27 +38,17 @@ export default function TableSelector({
       }
       setError(null);
 
-      // Use the real endpoint directly
-      const tablesUrl = `${API_CONFIG.baseURL}/api/tables/all`;
-      const tablesResponse = await axios.get(tablesUrl);
-      const tablesData = tablesResponse.data?.data || [];
+      // "api" already returns response.data (unwrapped) — no `.data.data` needed
+      const tablesResponse = await api.get(`/tables/all`);
+      const tablesData = tablesResponse?.data || [];
       setTables(tablesData);
     } catch (error: any) {
       console.error("Failed to fetch tables:", error);
 
-      // Better error message handling
-      let errorMessage = "Failed to load tables";
-      if (error.response) {
-        errorMessage =
-          error.response.data?.message ||
-          error.response.statusText ||
-          `Server error: ${error.response.status}`;
-      } else if (error.request) {
-        errorMessage = "Network error - please check your connection";
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
+      // api.ts interceptor already reshapes rejected errors into
+      // { success: false, message, status } — not a raw AxiosError.
+      // So error.response won't exist here; use error.message directly.
+      const errorMessage = error?.message || "Failed to load tables";
       setError(errorMessage);
       setTables([]);
     } finally {

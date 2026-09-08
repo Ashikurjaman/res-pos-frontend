@@ -147,31 +147,28 @@ export default function InvoiceDetails({
 
     try {
       // Create sale
-      const response = await axios.post(
-        `${API_CONFIG.baseURL}/api/create-sale`,
-        {
-          entryDate: today,
-          total,
-          discount,
-          vat,
-          sd,
-          paymentMode,
-          received,
-          change: received - total,
-          table_id: selectedTable.id,
-          status: "completed",
-          products: cart.map((item) => ({
-            id: item.id,
-            name: item.product_name,
-            category: item.category,
-            price: item.price,
-            quantity: item.quantity,
-            stock: item.stock,
-            vat: item.vat,
-            sd: item.sd,
-          })),
-        },
-      );
+      const response = await axios.post(`${API_CONFIG.baseURL}/create-sale`, {
+        entryDate: today,
+        total,
+        discount,
+        vat,
+        sd,
+        paymentMode,
+        received,
+        change: received - total,
+        table_id: selectedTable.id,
+        status: "completed",
+        products: cart.map((item) => ({
+          id: item.id,
+          name: item.product_name,
+          category: item.category,
+          price: item.price,
+          quantity: item.quantity,
+          stock: item.stock,
+          vat: item.vat,
+          sd: item.sd,
+        })),
+      });
 
       setInvoice(response.data.invoiceNo);
 
@@ -181,7 +178,7 @@ export default function InvoiceDetails({
 
       // Update table status
       await axios.put(
-        `${API_CONFIG.baseURL}/api/tables/${selectedTable.id}/status`,
+        `${API_CONFIG.baseURL}/tables/${selectedTable.id}/status`,
         {
           status: "available",
         },
